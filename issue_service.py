@@ -42,4 +42,3 @@ def get_issue_logs():
     return [dict(row) for row in rows]
 
     return [dict(row) for row in rows]
->>>>>>> daab871577fd9f1ad5aa386bcb7b5c270b28f509
