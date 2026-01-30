@@ -1,27 +1,27 @@
 from database import get_connection
 
 def add_product(name, category, quantity, unit_type, supplier, date_added, cost_price, item_code, contract_no, plant_name, gate_pass_no, gate_pass_date):
-
-
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
-INSERT INTO products (
-    name, category, quantity, unit_type, supplier,
-    date_added, cost_price, item_code, contract_number,
-    plant_name, gate_pass_no, gate_pass_date
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-""", (
-    name, category, quantity, unit_type, supplier,
-    date_added, cost_price, item_code, contract_no,
-    plant_name, gate_pass_no, gate_pass_date
-))
-
+        INSERT INTO products (
+            name, category, quantity, unit_type,
+            supplier, date_added, cost_price,
+            item_code, contract_number,
+            plant_name, gate_pass_no, gate_pass_date
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        name, category, quantity, unit_type,
+        supplier, date_added, cost_price,
+        item_code, contract_no,
+        plant_name, gate_pass_no, gate_pass_date
+    ))
 
     conn.commit()
     conn.close()
+
 
 def get_all_products():
     conn = get_connection()
