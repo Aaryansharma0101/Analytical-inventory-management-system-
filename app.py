@@ -51,6 +51,20 @@ div[data-baseweb="select"] > div {
     background-color: #020617 !important;
 }
 
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
+}
 
 /* ===================== MULTISELECT TAGS ===================== */
 
@@ -370,13 +384,16 @@ elif page == "Products":
             supplier = st.text_input("Supplier")
             item_code = st.text_input("Item Code")
             contract_no = st.text_input("Contract No.")
-
+            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
         # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-            quantity = st.number_input("Enter Value", min_value=0, step=1)
             date_added = st.date_input("Date Added")
-            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
+            quantity = st.number_input("Enter Value", min_value=0, step=1)
+            plant_name = st.text_input("Plant Name")
+            gate_pass_no = st.text_input("Gate Pass No.")
+
+
 
         submitted = st.form_submit_button("Add Product")
 
@@ -393,7 +410,10 @@ elif page == "Products":
                     str(date_added),
                     cost_price,
                     item_code,
-                    contract_no
+                    contract_no,
+                    plant_name,
+                    gate_pass_no,
+                    gate_pass_date=""
                 )
                 st.success(f"Product '{name}' added successfully!")
                 st.rerun()
