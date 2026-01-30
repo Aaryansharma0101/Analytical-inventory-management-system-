@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS products (
     item_code TEXT UNIQUE,
     contract_number TEXT,
     supplier TEXT,
+    date_added TEXT,
     cost_price REAL,
     sell_price REAL,
     status TEXT DEFAULT 'active',
@@ -89,7 +90,5 @@ CREATE TABLE IF NOT EXISTS products (
     )
     """)
 
-
     conn.commit()
     conn.close()
-
