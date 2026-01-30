@@ -384,12 +384,12 @@ elif page == "Products":
             supplier = st.text_input("Supplier")
             item_code = st.text_input("Item Code")
             contract_no = st.text_input("Contract No.")
-            date_added = st.date_input("Date Added")
 
         # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
             quantity = st.number_input("Enter Value", min_value=0, step=1)
+            date_added = st.date_input("Date Added")
             cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
 
         submitted = st.form_submit_button("Add Product")
