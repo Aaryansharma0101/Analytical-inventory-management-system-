@@ -41,4 +41,37 @@ def get_issue_logs():
 
     return [dict(row) for row in rows]
 
-    return [dict(row) for row in rows]
+def update_issue(issue_id, new_issued_to, new_qty, new_used_qty, new_purpose):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Get old issue record
+    cursor.execute("SELECT product_id, issued_qty FROM issue_logs WHERE issue_id = ?", (issue_id,))
+    old = cursor.fetchone()
+
+    if not old:
+        conn.close()
+        return False
+
+    product_id, old_qty = old
+
+    # Calculate stock adjustment
+    difference = new_qty - old_qty
+
+    # Update stock (reverse or deduct)
+    cursor.execute("""
+        UPDATE products 
+        SET quantity = quantity - ? 
+        WHERE product_id = ?
+    """, (difference, product_id))
+
+    # Update issue log
+    cursor.execute("""
+        UPDATE issue_logs
+        SET issued_to = ?, issued_qty = ?, used_qty = ?, usage_purpose = ?
+        WHERE issue_id = ?
+    """, (new_issued_to, new_qty, new_used_qty, new_purpose, issue_id))
+
+    conn.commit()
+    conn.close()
+    return True
