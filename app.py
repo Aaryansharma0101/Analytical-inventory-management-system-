@@ -392,6 +392,7 @@ elif page == "Products":
             quantity = st.number_input("Enter Value", min_value=0, step=1)
             plant_name = st.text_input("Plant Name")
             gate_pass_no = st.text_input("Gate Pass No.")
+            gate_pass_date = st.date_input("Gate pass date")
 
 
 
