@@ -365,9 +365,9 @@ elif page == "Products":
 
         # LEFT COLUMN
         with col1:
-            name = st.text_input("Item Name")
-            category = st.text_input("Project")
             supplier = st.text_input("Supplier")
+            category = st.text_input("Project")
+            name = st.text_input("Item Name")
             item_code = st.text_input("Item Code")
             contract_no = st.text_input("Contract No.")
             cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
