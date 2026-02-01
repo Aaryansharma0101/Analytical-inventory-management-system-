@@ -51,6 +51,20 @@ div[data-baseweb="select"] > div {
     background-color: #020617 !important;
 }
 
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
+}
 
 /* ===================== MULTISELECT TAGS ===================== */
 
@@ -285,48 +299,50 @@ elif page == "Products":
                 errors = 0
 
                 existing = get_all_products()
-                existing_map = {}
-
-                # Build lookup map safely
-                for p in existing:
-                    code = (p.get("item_code") or "").strip()
-                    if code:
-                        existing_map[code] = p["product_id"]
+                existing_map = {
+                    (p.get("item_code") or "").strip(): p["product_id"]
+                    for p in existing
+                    if p.get("item_code")
+                }
 
                 for _, row in df_upload.iterrows():
                     try:
+                        # ===== REQUIRED FIELDS =====
                         name = str(row.get("Item Name", "")).strip()
                         category = str(row.get("PROJECT", "")).strip()
                         supplier = str(row.get("SUPPLIER", "")).strip()
+
+                        if not name or not category or not supplier:
+                            skipped += 1
+                            continue
+
+                        # ===== OPTIONAL FIELDS =====
                         item_code = str(row.get("Material Code", "")).strip()
                         contract_no = str(row.get("Contract no.", "")).strip()
                         unit_type = str(row.get("Unit", "Quantity")).strip()
                         date_added = str(row.get("Date", "")).strip()
                         cost_price = float(row.get("CP", 0) or 0)
 
-                        quantity = 0
-                        min_stock = 0
-                        sell_price = 0
+                        quantity = int(row.get("Quantity", 0) or 0)
 
-                        # Skip invalid rows
-                        if not name or not item_code:
-                            skipped += 1
-                            continue
+                        # Normalize unit
+                        if unit_type.lower() not in ["meter", "quantity"]:
+                            unit_type = "Quantity"
 
-                        # UPDATE existing product
-                        if item_code in existing_map:
+                        # ===== UPDATE IF ITEM CODE EXISTS =====
+                        if item_code and item_code in existing_map:
                             update_product(
                                 existing_map[item_code],
                                 name,
                                 category,
                                 supplier,
-                                min_stock,
+                                0,              # min_stock (unused)
                                 cost_price,
-                                sell_price
+                                0               # sell_price (unused)
                             )
                             updated += 1
 
-                        # INSERT new product safely
+                        # ===== INSERT NEW PRODUCT =====
                         else:
                             add_product(
                                 name,
@@ -346,7 +362,7 @@ elif page == "Products":
 
                 st.success(f"✅ Imported {imported} new products")
                 st.info(f"🔁 Updated {updated} existing products")
-                st.warning(f"⚠️ Skipped {skipped} invalid rows")
+                st.warning(f"⚠️ Skipped {skipped} rows (missing required fields)")
                 if errors:
                     st.error(f"❌ {errors} rows failed")
 
@@ -365,20 +381,20 @@ elif page == "Products":
 
         # LEFT COLUMN
         with col1:
-            supplier = st.text_input("Supplier")
-            category = st.text_input("Project")
             name = st.text_input("Item Name")
+            category = st.text_input("Project")
+            supplier = st.text_input("Supplier")
             item_code = st.text_input("Item Code")
             contract_no = st.text_input("Contract No.")
             cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
         # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-            quantity = st.number_input("Enter Value", min_value=0, step=1)
             date_added = st.date_input("Date Added")
+            quantity = st.number_input("Enter Value", min_value=0, step=1)
             plant_name = st.text_input("Plant Name")
             gate_pass_no = st.text_input("Gate Pass No.")
-            gate_pass_date = st.date_input("Gate pass date")
+            gate_pass_date = st.date_input("Gate Pass Date")
 
 
 
@@ -400,8 +416,9 @@ elif page == "Products":
                     contract_no,
                     plant_name,
                     gate_pass_no,
-                    gate_pass_date=""
+                    str(gate_pass_date)
                 )
+
                 st.success(f"Product '{name}' added successfully!")
                 st.rerun()
 
