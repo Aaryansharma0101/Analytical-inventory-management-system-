@@ -51,6 +51,20 @@ div[data-baseweb="select"] > div {
     background-color: #020617 !important;
 }
 
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
+}
 
 /* ===================== MULTISELECT TAGS ===================== */
 
@@ -312,7 +326,13 @@ elif page == "Products":
                                 continue
 
                             # OPTIONAL
-                            item_code = str(row.get("Material Code", "")).strip()
+                            raw_code = row.get("Material Code")
+
+                            if pd.isna(raw_code) or str(raw_code).strip() == "":
+                                item_code = None
+                            else:
+                                item_code = str(raw_code).strip()
+
                             contract_no = str(row.get("Contract no.", "")).strip()
                             unit_type = str(row.get("Unit", "Quantity")).strip()
                             date_added = str(row.get("Date", "")).strip()
@@ -398,8 +418,8 @@ elif page == "Products":
         # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-            date_added = st.date_input("Date Added")
             quantity = st.number_input("Enter Value", min_value=0, step=1)
+            date_added = st.date_input("Date Added")
             plant_name = st.text_input("Plant Name")
             gate_pass_no = st.text_input("Gate Pass No.")
             gate_pass_date = st.date_input("Gate Pass Date")
@@ -412,6 +432,9 @@ elif page == "Products":
             if name.strip() == "":
                 st.error("Item Name is required")
             else:
+                if not item_code or item_code.lower() in ["none", "nan", ""]:
+                    item_code = None
+
                 add_product(
                     name,
                     category,
