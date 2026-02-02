@@ -376,10 +376,10 @@ elif page == "Products":
         # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-            date_added = st.date_input("Date Added")
             quantity = st.number_input("Enter Value", min_value=0, step=1)
             plant_name = st.text_input("Plant Name")
             gate_pass_no = st.text_input("Gate Pass No.")
+            date_added = st.date_input("Date Added")
             gate_pass_date = st.date_input("Gate Pass Date")
 
 
