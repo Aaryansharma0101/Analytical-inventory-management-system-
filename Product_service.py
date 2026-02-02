@@ -23,7 +23,6 @@ def add_product(name, category, quantity, unit_type, supplier, date_added, cost_
     conn.close()
 
 
-
 def get_all_products():
     conn = get_connection()
     cursor = conn.cursor()
