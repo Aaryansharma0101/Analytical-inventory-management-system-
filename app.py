@@ -51,6 +51,20 @@ div[data-baseweb="select"] > div {
     background-color: #020617 !important;
 }
 
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
+}
 
 /* ===================== MULTISELECT TAGS ===================== */
 
@@ -319,8 +333,21 @@ elif page == "Products":
                             cost_price = float(row.get("CP", 0) or 0)
                             quantity = int(row.get("Quantity", 0) or 0)
 
-                            if unit_type.lower() not in ["meter", "quantity"]:
-                                unit_type = "Quantity"
+                            # --- Normalize UNIT ---
+                            unit_type = unit_type.capitalize()
+                            if unit_type not in ["Meter", "Quantity"]:
+                                unit_type = "Quantity"   # safe default
+
+                            # --- Normalize DATE ---
+                            if isinstance(row.get("Date"), pd.Timestamp):
+                                date_added = row["Date"].strftime("%Y-%m-%d")
+                            elif date_added.lower() in ["none", "nan", ""]:
+                                date_added = None
+
+                            # --- Normalize ITEM CODE ---
+                            if item_code.lower() in ["none", "nan", ""]:
+                                item_code = None
+
 
                             # UPDATE
                             if item_code and item_code in existing_map:
@@ -338,20 +365,26 @@ elif page == "Products":
                             # INSERT
                             else:
                                 add_product(
-                                    name,
-                                    category,
-                                    quantity,
-                                    unit_type,
-                                    supplier,
-                                    date_added,
-                                    cost_price,
-                                    item_code,
-                                    contract_no
+                                    name=name,
+                                    category=category,
+                                    quantity=quantity or 0,
+                                    unit_type=unit_type,
+                                    supplier=supplier,
+                                    date_added=date_added,
+                                    cost_price=cost_price or 0,
+                                    item_code=item_code,
+                                    contract_no=contract_no,
+                                    plant_name=row.get("Plant Name"),
+                                    gate_pass_no=row.get("Gate Pass No."),
+                                    gate_pass_date=row.get("Gate Pass Date")
                                 )
+
                                 imported += 1
 
-                        except Exception:
+                        except Exception as e:
                             errors += 1
+                            st.error(f"Row failed ({name}): {e}")
+
 
                     st.success(f"✅ Imported {imported} new products")
                     st.info(f"🔁 Updated {updated} existing products")
