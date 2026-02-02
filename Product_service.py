@@ -54,21 +54,27 @@ def delete_product(product_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Delete issue logs linked to this product
+    # 1️⃣ Delete consumption logs
     cursor.execute("""
-        DELETE FROM issue_logs 
+        DELETE FROM consumption_logs
         WHERE product_id = ?
     """, (product_id,))
 
-    # Delete stock history linked to this product
+    # 2️⃣ Delete issue logs
     cursor.execute("""
-        DELETE FROM stock_history 
+        DELETE FROM issue_logs
         WHERE product_id = ?
     """, (product_id,))
 
-    # Delete the product itself
+    # 3️⃣ Delete stock movement logs
     cursor.execute("""
-        DELETE FROM products 
+        DELETE FROM stock_movements
+        WHERE product_id = ?
+    """, (product_id,))
+
+    # 4️⃣ Delete product
+    cursor.execute("""
+        DELETE FROM products
         WHERE product_id = ?
     """, (product_id,))
 
