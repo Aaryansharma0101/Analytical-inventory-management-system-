@@ -5,7 +5,7 @@ def add_product(name, category, quantity, unit_type, supplier, date_added, cost_
     cursor = conn.cursor()
 
     cursor.execute("""
-        INSERT INTO products (
+        INSERT OR IGNORE INTO products (
             name, category, quantity, unit_type,
             supplier, date_added, cost_price,
             item_code, contract_number,
