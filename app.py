@@ -157,7 +157,34 @@ hr {
     margin-bottom: 18px !important;
 }
 
+/* ===================== FIX SELECTBOX COLOR (MATCH INPUTS) ===================== */
 
+/* Selectbox outer container */
+div[data-baseweb="select"] > div {
+    background-color: #020617 !important;   /* same as inputs */
+    border-radius: 8px !important;
+    border: 1px solid rgba(150,150,150,0.18) !important;
+}
+
+/* Selected value text */
+div[data-baseweb="select"] span {
+    color: #e5e7eb !important;
+}
+
+/* Dropdown arrow */
+div[data-baseweb="select"] svg {
+    fill: #9ca3af !important;
+}
+
+/* Hover state */
+div[data-baseweb="select"]:hover > div {
+    border-color: rgba(150,150,150,0.35) !important;
+}
+
+/* Dropdown menu background */
+div[role="listbox"] {
+    background-color: #020617 !important;
+}
 
 </style>
 """, unsafe_allow_html=True)
