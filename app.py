@@ -11,6 +11,14 @@ from reports_service import get_interconnected_data
 
 init_db()
 
+def lock_button(key):
+    if key not in st.session_state:
+        st.session_state[key] = False
+
+def reset_lock(key):
+    st.session_state[key] = False
+
+
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Priya engineering And Suppliers",
@@ -51,6 +59,20 @@ div[data-baseweb="select"] > div {
     background-color: #020617 !important;
 }
 
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
+}
 
 /* ===================== MULTISELECT TAGS ===================== */
 
@@ -412,32 +434,39 @@ elif page == "Products":
 
 
 
-        submitted = st.form_submit_button("Add Product")
+            lock_button("add_product_lock")
 
-        if submitted:
-            if name.strip() == "":
-                st.error("Item Name is required")
-            else:
-                if not item_code or item_code.lower() in ["none", "nan", ""]:
-                    item_code = None
+            submitted = st.form_submit_button("Add Product", disabled=st.session_state["add_product_lock"])
 
-                add_product(
-                    name,
-                    category,
-                    quantity,
-                    unit_type,
-                    supplier,
-                    str(date_added),
-                    cost_price,
-                    item_code,
-                    contract_no,
-                    plant_name,
-                    gate_pass_no,
-                    str(gate_pass_date)
-                )
+            if submitted:
+                st.session_state["add_product_lock"] = True
 
-                st.success(f"Product '{name}' added successfully!")
-                st.rerun()
+                if name.strip() == "":
+                    st.error("Item Name is required")
+                    reset_lock("add_product_lock")
+
+                else:
+                    if not item_code or item_code.lower() in ["none", "nan", ""]:
+                        item_code = None
+
+                    add_product(
+                        name,
+                        category,
+                        quantity,
+                        unit_type,
+                        supplier,
+                        str(date_added),
+                        cost_price,
+                        item_code,
+                        contract_no,
+                        plant_name,
+                        gate_pass_no,
+                        str(gate_pass_date)
+                    )
+
+                    st.success("✅ Product added successfully!")
+                    st.info("🔒 Button locked to prevent duplicate entry.")
+                    st.rerun()
 
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
@@ -453,12 +482,17 @@ elif page == "Stock Entry":
         qty = st.number_input("Quantity to Add", min_value=1, step=1, key="add_stock_qty")
         notes = st.text_input("Notes (optional)", key="add_stock_notes")
 
-        if st.button("Add Stock", key="add_stock_button"):
-            update_stock(product_map[selected], qty, "ADD", notes)
-            st.success("Stock updated successfully!")
-            st.rerun()
-    else:
-        st.info("No products available.")
+        lock_button("add_stock_lock")
+
+        if st.button("Add Stock", key="add_stock_button", disabled=st.session_state["add_stock_lock"]):
+                st.session_state["add_stock_lock"] = True
+
+                update_stock(product_map[selected], qty, "ADD", notes)
+
+                st.success("✅ Stock added successfully!")
+                st.info("🔒 Button locked to prevent double stock entry.")
+                st.rerun()
+
 
 # ---------------- ISSUE STOCK ----------------
 elif page == "Issue Stock":
@@ -506,9 +540,15 @@ elif page == "Issue Stock":
             remaining_qty = issued_qty - used_qty
             st.info(f"Remaining with user: {remaining_qty}")
 
-            if st.button("Submit Issue"):
+            lock_button("issue_stock_lock")
+
+            if st.button("📤 Submit Issue", disabled=st.session_state["issue_stock_lock"]):
+                st.session_state["issue_stock_lock"] = True
+
                 if used_qty > issued_qty:
                     st.error("Used quantity cannot exceed issued quantity")
+                    reset_lock("issue_stock_lock")
+
                 else:
                     issue_product(
                         product_map[selected],
@@ -518,8 +558,11 @@ elif page == "Issue Stock":
                         used_qty,
                         usage_purpose
                     )
-                    st.success("Issue recorded successfully!")
+
+                    st.success("✅ Issue recorded successfully!")
+                    st.info("🔒 Button locked to prevent double issue entry.")
                     st.rerun()
+
 
         st.divider()                 
         st.subheader("✏️ Edit Issued Records")
@@ -639,12 +682,30 @@ elif page == "Inventory":
                 cost_price = st.number_input("Cost Price", value=float(product["cost_price"] or 0))
                 sell_price = st.number_input("Sell Price", value=float(product["sell_price"] or 0))
 
-            updated = st.form_submit_button("Update Product")
+        lock_button("update_product_lock")
 
-            if updated:
-                update_product(product["product_id"], name, category, supplier, min_stock, cost_price, sell_price)
-                st.success("Product updated successfully!")
+        updated = st.form_submit_button("Update Product", disabled=st.session_state["update_product_lock"])
+
+        if updated:
+                st.session_state["update_product_lock"] = True
+
+                update_product(
+                    product["product_id"],
+                    name,
+                    category,
+                    supplier,
+                    min_stock,
+                    cost_price,
+                    sell_price,
+                    plant_name,
+                    gate_pass_no,
+                    gate_pass_date
+                )
+
+                st.success("✅ Product updated successfully!")
+                st.info("🔒 Button locked to prevent duplicate update.")
                 st.rerun()
+
 
         if role == "admin":
             if st.button("Delete Product"):
