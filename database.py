@@ -6,14 +6,16 @@ DB_NAME = "inventory.db"
 DB_PATH = os.path.join(DB_FOLDER, DB_NAME)
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH)
+    os.makedirs(DB_FOLDER, exist_ok=True)   # ✅ ensures folder exists always
+    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def init_db():
     os.makedirs(DB_FOLDER, exist_ok=True)
     conn = get_connection()
-    cursor = conn.cursor()
+    cursor = conn.cursor()  
 
     # Products Table
     cursor.execute("""
