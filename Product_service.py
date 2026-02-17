@@ -1,26 +1,56 @@
 from database import get_connection
 
-def add_product(name, category, quantity, unit_type, supplier, date_added, cost_price, item_code, contract_no, plant_name, gate_pass_no, gate_pass_date):
+def add_product(
+    name,
+    category,
+    quantity,
+    unit_type,
+    supplier,
+    date_added,
+    cost_price,
+    item_code,
+    contract_no,
+    plant_name,
+    gate_pass_no,
+    gate_pass_date
+):
     conn = get_connection()
     cursor = conn.cursor()
 
     cursor.execute("""
         INSERT OR IGNORE INTO products (
-            name, category, quantity, unit_type,
-            supplier, date_added, cost_price,
-            item_code, contract_number,
-            plant_name, gate_pass_no, gate_pass_date
+            name,
+            category,
+            quantity,
+            unit_type,
+            supplier,
+            date_added,
+            cost_price,
+            item_code,
+            contract_number,
+            plant_name,
+            gate_pass_no,
+            gate_pass_date
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        name, category, quantity, unit_type,
-        supplier, date_added, cost_price,
-        item_code, contract_no,
-        plant_name, gate_pass_no, gate_pass_date
+        name,
+        category,
+        quantity,
+        unit_type,
+        supplier,
+        date_added,
+        cost_price,
+        item_code,
+        contract_no,
+        plant_name,
+        gate_pass_no,
+        gate_pass_date
     ))
 
     conn.commit()
     conn.close()
+
 
 
 def get_all_products():
@@ -37,7 +67,7 @@ def get_all_products():
 
     return [dict(row) for row in rows]
 
-def update_product(product_id, name, category, supplier, date_added, cost_price, sell_price):
+def update_product(product_id, name, category, supplier, date_added, cost_price,plant_name, gate_pass_no, gate_pass_date):
     conn = get_connection()
     cursor = conn.cursor()
 
