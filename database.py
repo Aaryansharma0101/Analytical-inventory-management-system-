@@ -3,14 +3,30 @@ import os
 
 DB_FOLDER = "data"
 DB_NAME = "inventory.db"
-DB_PATH = os.path.join(DB_FOLDER, DB_NAME)
+
+def get_db_path():
+    # Streamlit Cloud safe writable location
+    return os.path.join(os.getcwd(), DB_NAME)
 
 def get_connection():
-    os.makedirs(DB_FOLDER, exist_ok=True)   # ✅ ensures folder exists always
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+import sqlite3
+import os
 
+DB_NAME = "inventory.db"
+
+def get_db_path():
+    # Streamlit Cloud safe writable location
+    return os.path.join(os.getcwd(), DB_NAME)
+
+def get_connection():
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 def init_db():
     os.makedirs(DB_FOLDER, exist_ok=True)
