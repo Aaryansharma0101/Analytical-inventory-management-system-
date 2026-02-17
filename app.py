@@ -9,14 +9,23 @@ from issue_service import issue_product, get_issue_logs
 from auth_service import register_user, login_user
 from reports_service import get_interconnected_data
 
-init_db()
+import time
 
-def lock_button(key):
+def safe_action_lock(key, cooldown=2):
+    """
+    Prevents double-click actions for 'cooldown' seconds.
+    """
+    now = time.time()
+
     if key not in st.session_state:
-        st.session_state[key] = False
+        st.session_state[key] = 0
 
-def reset_lock(key):
-    st.session_state[key] = False
+    if now - st.session_state[key] < cooldown:
+        return False  # blocked
+
+    st.session_state[key] = now
+    return True
+
 
 
 # ---------------- PAGE CONFIG ----------------
@@ -177,6 +186,41 @@ h1, h2, h3 {
 hr {
     margin-top: 18px !important;
     margin-bottom: 18px !important;
+}
+/* ===================== SELECTBOX + MULTISELECT FIX ===================== */
+
+/* Selectbox main container */
+div[data-baseweb="select"] > div {
+    background-color: rgba(255,255,255,0.06) !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 10px !important;
+}
+
+/* Selectbox text */
+div[data-baseweb="select"] span {
+    color: #e5e7eb !important;
+}
+
+/* Dropdown arrow */
+div[data-baseweb="select"] svg {
+    fill: #e5e7eb !important;
+}
+
+/* Dropdown menu background */
+div[role="listbox"] {
+    background-color: #0b1220 !important;
+    border: 1px solid rgba(255,255,255,0.12) !important;
+    border-radius: 10px !important;
+}
+
+/* Dropdown options */
+div[role="option"] {
+    color: #e5e7eb !important;
+}
+
+/* Hover option */
+div[role="option"]:hover {
+    background-color: rgba(255,255,255,0.08) !important;
 }
 
 
@@ -434,20 +478,8 @@ elif page == "Products":
 
 
 
-            lock_button("add_product_lock")
-
-            submitted = st.form_submit_button("Add Product", disabled=st.session_state["add_product_lock"])
-
             if submitted:
-                st.session_state["add_product_lock"] = True
-
-                if name.strip() == "":
-                    st.error("Item Name is required")
-                    reset_lock("add_product_lock")
-
-                else:
-                    if not item_code or item_code.lower() in ["none", "nan", ""]:
-                        item_code = None
+                if safe_action_lock("add_product_lock", cooldown=2):
 
                     add_product(
                         name,
@@ -464,9 +496,12 @@ elif page == "Products":
                         str(gate_pass_date)
                     )
 
-                    st.success("✅ Product added successfully!")
-                    st.info("🔒 Button locked to prevent duplicate entry.")
+                    st.success("✅ Product Added Successfully!")
+                    st.info("Saved ✔")
                     st.rerun()
+
+                else:
+                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
@@ -475,23 +510,59 @@ elif page == "Stock Entry":
     products = get_all_products()
 
     if products:
-        product_map = {p["name"]: p["product_id"] for p in products}
+        # ---------------- PROJECT FILTER ----------------
+        project_list = sorted(list(set([p["category"] for p in products if p["category"]])))
 
-        selected = st.selectbox("Select Product", list(product_map.keys()), key="add_stock_product")
+        selected_project = st.selectbox(
+            "Select Project",
+            ["All Projects"] + project_list,
+            key="stock_entry_project_filter"
+        )
 
-        qty = st.number_input("Quantity to Add", min_value=1, step=1, key="add_stock_qty")
-        notes = st.text_input("Notes (optional)", key="add_stock_notes")
+        # Filter products by selected project
+        if selected_project != "All Projects":
+            products = [p for p in products if p["category"] == selected_project]
 
-        lock_button("add_stock_lock")
+        if products:
+            product_map = {p["name"]: p["product_id"] for p in products}
 
-        if st.button("Add Stock", key="add_stock_button", disabled=st.session_state["add_stock_lock"]):
-                st.session_state["add_stock_lock"] = True
+            selected = st.selectbox(
+                "Select Product",
+                list(product_map.keys()),
+                key="add_stock_product"
+            )
 
-                update_stock(product_map[selected], qty, "ADD", notes)
+            unit_type = st.selectbox(
+                "Unit Type",
+                ["Meter", "Quantity"],
+                key="add_stock_unit"
+            )
 
-                st.success("✅ Stock added successfully!")
-                st.info("🔒 Button locked to prevent double stock entry.")
-                st.rerun()
+            qty = st.number_input(
+                f"Enter {unit_type} Value",
+                min_value=1,
+                step=1,
+                key="add_stock_qty"
+            )
+
+            notes = st.text_input("Notes (optional)", key="add_stock_notes")
+
+            # Auto store unit info inside notes
+            final_notes = f"[{unit_type}] {notes}".strip()
+
+            if st.button("Add Stock", key="add_stock_btn"):
+                if safe_action_lock("add_stock_lock", cooldown=2):
+                    update_stock(product_map[selected], qty, "ADD", final_notes)
+                    st.success("✅ Stock Added Successfully!")
+                    st.info("Saved ✔")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+        else:
+            st.warning("No products found in this project.")
+
+    else:
+        st.info("No products available.")
 
 
 # ---------------- ISSUE STOCK ----------------
@@ -540,29 +611,28 @@ elif page == "Issue Stock":
             remaining_qty = issued_qty - used_qty
             st.info(f"Remaining with user: {remaining_qty}")
 
-            lock_button("issue_stock_lock")
+            if st.button("📤 Submit Issue"):
+                if safe_action_lock("issue_lock", cooldown=2):
 
-            if st.button("📤 Submit Issue", disabled=st.session_state["issue_stock_lock"]):
-                st.session_state["issue_stock_lock"] = True
+                    if used_qty > issued_qty:
+                        st.error("Used quantity cannot exceed issued quantity")
 
-                if used_qty > issued_qty:
-                    st.error("Used quantity cannot exceed issued quantity")
-                    reset_lock("issue_stock_lock")
+                    else:
+                        issue_product(
+                            product_map[selected],
+                            issued_to,
+                            st.session_state.user["username"],
+                            issued_qty,
+                            used_qty,
+                            usage_purpose
+                        )
+
+                        st.success("✅ Issue Recorded Successfully!")
+                        st.info("Saved ✔")
+                        st.rerun()
 
                 else:
-                    issue_product(
-                        product_map[selected],
-                        issued_to,
-                        st.session_state.user["username"],
-                        issued_qty,
-                        used_qty,
-                        usage_purpose
-                    )
-
-                    st.success("✅ Issue recorded successfully!")
-                    st.info("🔒 Button locked to prevent double issue entry.")
-                    st.rerun()
-
+                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
         st.divider()                 
         st.subheader("✏️ Edit Issued Records")
@@ -616,103 +686,6 @@ elif page == "Issue Stock":
                         st.error("Failed to update issue.")
         else:
             st.info("No issue records available.")
-
-# ---------------- INVENTORY ----------------
-elif page == "Inventory":
-    st.subheader("Inventory Overview")
-
-    products = get_all_products()
-
-    if products:
-        df = pd.DataFrame(products)
-
-        df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
-
-        df["Stock Status"] = df.apply(
-            lambda x: "LOW" if x["quantity"] <= x["min_stock"] else "OK",
-            axis=1
-        )
-
-        df_display = df.drop(columns=["quantity", "unit_type"])
-
-        st.markdown("### 🧩 Column Visibility")
-
-        all_columns = list(df_display.columns)
-
-        # Store visible columns persistently
-        if "visible_columns" not in st.session_state:
-            st.session_state.visible_columns = all_columns
-
-        selected_columns = st.multiselect(
-            "Select columns to display",
-            all_columns,
-            default=st.session_state.visible_columns
-        )
-
-        # Save selection
-        st.session_state.visible_columns = selected_columns
-
-        # Show filtered table
-        st.dataframe(df_display[selected_columns], use_container_width=True)
-
-        # EDIT PRODUCT
-        st.markdown("### Edit Product")
-
-        product_map = {f"{p['name']} (ID {p['product_id']})": p for p in products}
-        selected = st.selectbox("Select Product", list(product_map.keys()))
-
-        product = product_map[selected]
-
-        with st.form("edit_product_form"):
-            colA, colB = st.columns(2)
-
-            with colA:
-                name = st.text_input("Product Name", value=product["name"])
-                category = st.text_input("Category", value=product["category"])
-                supplier = st.text_input("Supplier", value=product["supplier"])
-
-            with colB:
-                raw_date = product.get("date_added")
-                if raw_date:
-                    date_value = pd.to_datetime(raw_date)
-                else:
-                    date_value = None
-
-                date_value = st.date_input("Date Added", value=date_value)
-                cost_price = st.number_input("Cost Price", value=float(product["cost_price"] or 0))
-                sell_price = st.number_input("Sell Price", value=float(product["sell_price"] or 0))
-
-        lock_button("update_product_lock")
-
-        updated = st.form_submit_button("Update Product", disabled=st.session_state["update_product_lock"])
-
-        if updated:
-                st.session_state["update_product_lock"] = True
-
-                update_product(
-                    product["product_id"],
-                    name,
-                    category,
-                    supplier,
-                    min_stock,
-                    cost_price,
-                    sell_price,
-                    plant_name,
-                    gate_pass_no,
-                    gate_pass_date
-                )
-
-                st.success("✅ Product updated successfully!")
-                st.info("🔒 Button locked to prevent duplicate update.")
-                st.rerun()
-
-
-        if role == "admin":
-            if st.button("Delete Product"):
-                delete_product(product["product_id"])
-                st.warning("Product deleted!")
-                st.rerun()
-
 # ---------------- LOGS ----------------
 elif page == "Logs":
     st.subheader("Stock Movement History")
@@ -733,60 +706,196 @@ elif page == "Logs":
 
 # ---------------- REPORTS ----------------
 if page == "Reports":
-    st.subheader("Interconnected Reports")
+    st.subheader("📊 Reports & Master Dashboard")
+    st.caption("Unified inventory + logs + interconnected issue reports in one place")
 
-    data = get_interconnected_data()
+    report_type = st.selectbox(
+        "Select Report Type",
+        [
+            "📦 Inventory Report",
+            "📥 Stock Movement Logs",
+            "📤 Issue & Consumption Report"
+        ],
+        key="report_type_select"
+    )
 
-    if not data:
-        st.info("No issue or consumption records found yet.")
-    else:
-        df = pd.DataFrame(data)
+    st.divider()
 
-        col1, col2 = st.columns([1, 3])
+    # ================================
+    # REPORT 1: INVENTORY REPORT
+    # ================================
+    if report_type == "📦 Inventory Report":
+        st.markdown("## 📦 Inventory Report")
 
-        with col1:
-            mode = st.selectbox(
-                "View By",
-                ["Person", "Product", "Category", "Issuer"]
+        products = get_all_products()
+
+        if not products:
+            st.info("No products available.")
+        else:
+            df = pd.DataFrame(products)
+
+            # Create Stock column if quantity + unit exists
+            if "quantity" in df.columns and "unit_type" in df.columns:
+                df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
+
+            st.markdown("### 🧩 Column Visibility")
+
+            all_columns = list(df.columns)
+
+            if "visible_inventory_report_cols" not in st.session_state:
+                st.session_state.visible_inventory_report_cols = all_columns
+
+            selected_cols = st.multiselect(
+                "Select columns to display",
+                all_columns,
+                default=st.session_state.visible_inventory_report_cols,
+                key="inventory_report_col_selector"
             )
 
-            if mode == "Person":
-                selected = st.selectbox("Select Person", sorted(df["issued_to"].dropna().unique()))
-                filtered = df[df["issued_to"] == selected]
+            st.session_state.visible_inventory_report_cols = selected_cols
 
-            elif mode == "Product":
-                selected = st.selectbox("Select Product", sorted(df["product"].dropna().unique()))
-                filtered = df[df["product"] == selected]
+            st.dataframe(df[selected_cols], use_container_width=True)
 
-            elif mode == "Category":
-                selected = st.selectbox("Select Category", sorted(df["category"].dropna().unique()))
-                filtered = df[df["category"] == selected]
-
-            elif mode == "Issuer":
-                selected = st.selectbox("Select Issuer", sorted(df["issued_by"].dropna().unique()))
-                filtered = df[df["issued_by"] == selected]
-
-        with col2:
-            display_cols = [
-                "issued_to", "product", "category",
-                "issued_by", "issued_qty",
-                "used_qty", "remaining_qty",
-                "usage_purpose", "date"
-            ]
-
-            filtered_display = filtered[display_cols]
-
-            st.dataframe(filtered_display, use_container_width=True)
-
-            # EXPORT EXCEL
+            # Export Excel
             buffer = io.BytesIO()
-
-            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-                filtered_display.to_excel(writer, sheet_name="Report", index=False)
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df[selected_cols].to_excel(writer, sheet_name="Inventory", index=False)
 
             st.download_button(
-                label="Download Excel Report",
+                label="📥 Download Inventory Excel",
                 data=buffer.getvalue(),
-                file_name="interconnected_report.xlsx",
+                file_name="inventory_report.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
+    # ================================
+    # REPORT 2: STOCK MOVEMENT LOGS
+    # ================================
+    elif report_type == "📥 Stock Movement Logs":
+        st.markdown("## 📥 Stock Movement Logs")
+        st.caption("Tracks all ADD / REMOVE movements for stock")
+
+        stock_logs = get_stock_history()
+
+        if not stock_logs:
+            st.info("No stock movements found.")
+        else:
+            df = pd.DataFrame(stock_logs)
+
+            st.markdown("### 🧩 Column Visibility")
+
+            all_columns = list(df.columns)
+
+            if "visible_stock_report_cols" not in st.session_state:
+                st.session_state.visible_stock_report_cols = all_columns
+
+            selected_cols = st.multiselect(
+                "Select columns to display",
+                all_columns,
+                default=st.session_state.visible_stock_report_cols,
+                key="stock_report_col_selector"
+            )
+
+            st.session_state.visible_stock_report_cols = selected_cols
+
+            st.dataframe(df[selected_cols], use_container_width=True)
+
+            buffer = io.BytesIO()
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df[selected_cols].to_excel(writer, sheet_name="Stock Movements", index=False)
+
+            st.download_button(
+                label="📥 Download Stock Logs Excel",
+                data=buffer.getvalue(),
+                file_name="stock_movements_report.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+
+    # ================================
+    # REPORT 3: ISSUE + CONSUMPTION REPORT
+    # ================================
+    elif report_type == "📤 Issue & Consumption Report":
+        st.markdown("## 📤 Issue & Consumption Report")
+        st.caption("Tracks who issued what to whom, consumption, remaining stock, and purpose")
+
+        data = get_interconnected_data()
+
+        if not data:
+            st.info("No issue or consumption records found yet.")
+        else:
+            df = pd.DataFrame(data)
+
+            col1, col2 = st.columns([1, 3])
+
+            with col1:
+                mode = st.selectbox(
+                    "View By",
+                    ["Person", "Product", "Category", "Issuer"],
+                    key="issue_report_mode"
+                )
+
+                if mode == "Person":
+                    selected = st.selectbox(
+                        "Select Person",
+                        sorted(df["issued_to"].dropna().unique()),
+                        key="issue_report_person"
+                    )
+                    filtered = df[df["issued_to"] == selected]
+
+                elif mode == "Product":
+                    selected = st.selectbox(
+                        "Select Product",
+                        sorted(df["product"].dropna().unique()),
+                        key="issue_report_product"
+                    )
+                    filtered = df[df["product"] == selected]
+
+                elif mode == "Category":
+                    selected = st.selectbox(
+                        "Select Category",
+                        sorted(df["category"].dropna().unique()),
+                        key="issue_report_category"
+                    )
+                    filtered = df[df["category"] == selected]
+
+                elif mode == "Issuer":
+                    selected = st.selectbox(
+                        "Select Issuer",
+                        sorted(df["issued_by"].dropna().unique()),
+                        key="issue_report_issuer"
+                    )
+                    filtered = df[df["issued_by"] == selected]
+
+            with col2:
+                st.markdown("### 📋 Results")
+
+                all_columns = list(filtered.columns)
+
+                st.markdown("### 🧩 Column Visibility")
+
+                if "visible_issue_report_cols" not in st.session_state:
+                    st.session_state.visible_issue_report_cols = all_columns
+
+                selected_cols = st.multiselect(
+                    "Select columns to display",
+                    all_columns,
+                    default=st.session_state.visible_issue_report_cols,
+                    key="issue_report_col_selector"
+                )
+
+                st.session_state.visible_issue_report_cols = selected_cols
+
+                st.dataframe(filtered[selected_cols], use_container_width=True)
+
+                # Export Excel
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                    filtered[selected_cols].to_excel(writer, sheet_name="Issue Report", index=False)
+
+                st.download_button(
+                    label="📥 Download Issue Report Excel",
+                    data=buffer.getvalue(),
+                    file_name="issue_consumption_report.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
