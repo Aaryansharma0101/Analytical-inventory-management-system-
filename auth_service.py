@@ -40,7 +40,7 @@ def login_user(identifier, password):
     user = cursor.fetchone()
     conn.close()
 
-    if not user:
+    if not user:    
         return False, "User not found", None
 
     if bcrypt.checkpw(password.encode(), user["password_hash"]):
