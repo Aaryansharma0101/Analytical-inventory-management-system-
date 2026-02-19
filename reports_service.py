@@ -6,33 +6,34 @@ def get_interconnected_data():
 
     cursor.execute("""
         SELECT
-            i.id AS issue_id,
+            p.product_id,
             p.name AS product,
-            p.category AS category,
-            p.supplier AS supplier,
-            p.item_code AS item_code,
-            p.contract_number AS contract_number,
-            p.plant_name AS plant_name,
-            p.gate_pass_no AS gate_pass_no,
-            p.gate_pass_date AS gate_pass_date,
-            p.unit_type AS unit_type,
-            p.quantity AS total_stock,
+            p.category,
+            p.supplier,
+            p.item_code,
+            p.contract_number,
+            p.plant_name,
+            p.gate_pass_no,
+            p.gate_pass_date,
+            p.unit_type,
+            p.quantity AS current_stock,
+            p.date_added,
 
             i.issued_to,
             i.issued_by,
             i.issued_qty,
             i.used_qty,
             i.usage_purpose,
-            (p.quantity - i.issued_qty) AS remaining_qty,
-            i.date
+            i.date AS issue_date
 
-        FROM issue_logs i
-        JOIN products p ON i.product_id = p.product_id
-        ORDER BY i.date DESC
+        FROM products p
+        LEFT JOIN issue_logs i
+        ON p.product_id = i.product_id
+
+        ORDER BY p.name ASC
     """)
 
     rows = cursor.fetchall()
     conn.close()
 
     return [dict(r) for r in rows]
-
