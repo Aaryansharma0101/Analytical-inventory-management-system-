@@ -746,9 +746,13 @@ elif page == "Reports":
                 "Issuer",
                 ["All"] + sorted(df["issued_by"].dropna().unique().tolist())
             )
+        show_issued_only = st.toggle("Show Issued Items Only", value=False)
 
         # ---------------- APPLY FILTERS ----------------
         filtered = df.copy()
+        if show_issued_only:
+            filtered = filtered[filtered["issued_to"].notna()]
+
 
         if person_filter != "All":
             filtered = filtered[filtered["issued_to"] == person_filter]
