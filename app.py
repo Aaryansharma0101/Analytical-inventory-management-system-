@@ -776,19 +776,30 @@ elif page == "Reports":
 
     # ================= COLUMN VISIBILITY =================
     st.markdown("### 🧩 Column Visibility")
-
+    
     all_columns = list(filtered.columns)
-
+    
+    # Initialize session state if not exists
     if "visible_master_report_columns" not in st.session_state:
         st.session_state.visible_master_report_columns = all_columns
-
+    
+    # ✅ Keep only columns that still exist
+    valid_saved_columns = [
+        col for col in st.session_state.visible_master_report_columns
+        if col in all_columns
+    ]
+    
+    # If nothing valid remains, reset
+    if not valid_saved_columns:
+        valid_saved_columns = all_columns
+    
     selected_columns = st.multiselect(
         "Select columns to display",
         all_columns,
-        default=st.session_state.visible_master_report_columns,
+        default=valid_saved_columns,
         key="master_report_column_selector"
     )
-
+    
     st.session_state.visible_master_report_columns = selected_columns
 
     # ================= TABLE =================
