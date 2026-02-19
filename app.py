@@ -708,80 +708,95 @@ elif page == "Logs":
         st.info("No issued products yet.")
 
 # ---------------- REPORTS ----------------
-if page == "Reports":
-    st.subheader("Interconnected Reports")
+elif page == "Reports":
+    st.subheader("📊 Master Reports (Inventory + Logs)")
 
     data = get_interconnected_data()
 
     if not data:
-        st.info("No issue or consumption records found yet.")
+        st.info("No records available.")
     else:
         df = pd.DataFrame(data)
 
-        col1, col2 = st.columns([1, 3])
+        # ---------------- FILTER SECTION ----------------
+        st.markdown("### 🔎 Filters")
+
+        col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            mode = st.selectbox(
-                "View By",
-                ["Person", "Product", "Category", "Issuer"]
+            person_filter = st.selectbox(
+                "Person",
+                ["All"] + sorted(df["issued_to"].dropna().unique().tolist())
             )
-
-            if mode == "Person":
-                selected = st.selectbox("Select Person", sorted(df["issued_to"].dropna().unique()))
-                filtered = df[df["issued_to"] == selected]
-
-            elif mode == "Product":
-                selected = st.selectbox("Select Product", sorted(df["product"].dropna().unique()))
-                filtered = df[df["product"] == selected]
-
-            elif mode == "Category":
-                selected = st.selectbox("Select Category", sorted(df["category"].dropna().unique()))
-                filtered = df[df["category"] == selected]
-
-            elif mode == "Issuer":
-                selected = st.selectbox("Select Issuer", sorted(df["issued_by"].dropna().unique()))
-                filtered = df[df["issued_by"] == selected]
 
         with col2:
-            display_cols = [
-                "issued_to", "product", "category",
-                "issued_by", "issued_qty",
-                "used_qty", "remaining_qty",
-                "usage_purpose", "date"
-            ]
-
-            filtered_display = filtered[display_cols]
-
-            st.markdown("### 🧩 Column Visibility")
-
-            report_columns = list(filtered_display.columns)
-
-            # Store visible columns persistently for reports
-            if "visible_report_columns" not in st.session_state:
-                st.session_state.visible_report_columns = report_columns
-
-            selected_report_columns = st.multiselect(
-                "Select columns to display in report",
-                report_columns,
-                default=st.session_state.visible_report_columns,
-                key="report_column_selector"
+            product_filter = st.selectbox(
+                "Product",
+                ["All"] + sorted(df["product"].dropna().unique().tolist())
             )
 
-            # Save selection
-            st.session_state.visible_report_columns = selected_report_columns
-
-            # Show filtered report table
-            st.dataframe(filtered_display[selected_report_columns], use_container_width=True)
-
-            # EXPORT EXCEL
-            buffer = io.BytesIO()
-
-            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-                filtered_display.to_excel(writer, sheet_name="Report", index=False)
-
-            st.download_button(
-                label="Download Excel Report",
-                data=buffer.getvalue(),
-                file_name="interconnected_report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        with col3:
+            category_filter = st.selectbox(
+                "Project",
+                ["All"] + sorted(df["category"].dropna().unique().tolist())
             )
+
+        with col4:
+            issuer_filter = st.selectbox(
+                "Issuer",
+                ["All"] + sorted(df["issued_by"].dropna().unique().tolist())
+            )
+
+        # ---------------- APPLY FILTERS ----------------
+        filtered = df.copy()
+
+        if person_filter != "All":
+            filtered = filtered[filtered["issued_to"] == person_filter]
+
+        if product_filter != "All":
+            filtered = filtered[filtered["product"] == product_filter]
+
+        if category_filter != "All":
+            filtered = filtered[filtered["category"] == category_filter]
+
+        if issuer_filter != "All":
+            filtered = filtered[filtered["issued_by"] == issuer_filter]
+
+        # ---------------- COLUMN VISIBILITY ----------------
+        st.markdown("### 🧩 Column Visibility")
+
+        all_columns = list(filtered.columns)
+
+        if "visible_master_report_columns" not in st.session_state:
+            st.session_state.visible_master_report_columns = all_columns
+
+        selected_columns = st.multiselect(
+            "Select columns to display",
+            all_columns,
+            default=st.session_state.visible_master_report_columns,
+            key="master_report_column_selector"
+        )
+
+        st.session_state.visible_master_report_columns = selected_columns
+
+        # ---------------- MASTER TABLE ----------------
+        st.markdown("### 📋 Complete Report")
+
+        st.dataframe(
+            filtered[selected_columns],
+            use_container_width=True,
+            height=600
+        )
+
+        # ---------------- EXPORT ----------------
+        buffer = io.BytesIO()
+
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            filtered[selected_columns].to_excel(writer, sheet_name="Master Report", index=False)
+
+        st.download_button(
+            label="⬇ Download Excel",
+            data=buffer.getvalue(),
+            file_name="master_inventory_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
