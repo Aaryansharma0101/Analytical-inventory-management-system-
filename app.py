@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import io
 from issue_service import update_issue
-from database import init_db
 from Product_service import add_product, get_all_products, update_product, delete_product
 from stock_service import update_stock, get_stock_history
 from issue_service import issue_product, get_issue_logs
@@ -215,6 +214,14 @@ div[role="option"]:hover {
 
 st.divider()
 
+from database import init_db
+
+init_db()   
+
+# THEN session init
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.user = None
 
 # ---------------- SESSION INIT ----------------
 if "logged_in" not in st.session_state:
