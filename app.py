@@ -709,196 +709,79 @@ elif page == "Logs":
 
 # ---------------- REPORTS ----------------
 if page == "Reports":
-    st.subheader("📊 Reports & Master Dashboard")
-    st.caption("Unified inventory + logs + interconnected issue reports in one place")
+    st.subheader("Interconnected Reports")
 
-    report_type = st.selectbox(
-        "Select Report Type",
-        [
-            "📦 Inventory Report",
-            "📥 Stock Movement Logs",
-            "📤 Issue & Consumption Report"
-        ],
-        key="report_type_select"
-    )
+    data = get_interconnected_data()
 
-    st.divider()
+    if not data:
+        st.info("No issue or consumption records found yet.")
+    else:
+        df = pd.DataFrame(data)
 
-    # ================================
-    # REPORT 1: INVENTORY REPORT
-    # ================================
-    if report_type == "📦 Inventory Report":
-        st.markdown("## 📦 Inventory Report")
+        col1, col2 = st.columns([1, 3])
 
-        products = get_all_products()
+        with col1:
+            mode = st.selectbox(
+                "View By",
+                ["Person", "Product", "Category", "Issuer"]
+            )
 
-        if not products:
-            st.info("No products available.")
-        else:
-            df = pd.DataFrame(products)
+            if mode == "Person":
+                selected = st.selectbox("Select Person", sorted(df["issued_to"].dropna().unique()))
+                filtered = df[df["issued_to"] == selected]
 
-            # Create Stock column if quantity + unit exists
-            if "quantity" in df.columns and "unit_type" in df.columns:
-                df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
+            elif mode == "Product":
+                selected = st.selectbox("Select Product", sorted(df["product"].dropna().unique()))
+                filtered = df[df["product"] == selected]
+
+            elif mode == "Category":
+                selected = st.selectbox("Select Category", sorted(df["category"].dropna().unique()))
+                filtered = df[df["category"] == selected]
+
+            elif mode == "Issuer":
+                selected = st.selectbox("Select Issuer", sorted(df["issued_by"].dropna().unique()))
+                filtered = df[df["issued_by"] == selected]
+
+        with col2:
+            display_cols = [
+                "issued_to", "product", "category",
+                "issued_by", "issued_qty",
+                "used_qty", "remaining_qty",
+                "usage_purpose", "date"
+            ]
+
+            filtered_display = filtered[display_cols]
 
             st.markdown("### 🧩 Column Visibility")
 
-            all_columns = list(df.columns)
+            report_columns = list(filtered_display.columns)
 
-            if "visible_inventory_report_cols" not in st.session_state:
-                st.session_state.visible_inventory_report_cols = all_columns
+            # Store visible columns persistently for reports
+            if "visible_report_columns" not in st.session_state:
+                st.session_state.visible_report_columns = report_columns
 
-            selected_cols = st.multiselect(
-                "Select columns to display",
-                all_columns,
-                default=st.session_state.visible_inventory_report_cols,
-                key="inventory_report_col_selector"
+            selected_report_columns = st.multiselect(
+                "Select columns to display in report",
+                report_columns,
+                default=st.session_state.visible_report_columns,
+                key="report_column_selector"
             )
 
-            st.session_state.visible_inventory_report_cols = selected_cols
+            # Save selection
+            st.session_state.visible_report_columns = selected_report_columns
 
-            st.dataframe(df[selected_cols], use_container_width=True)
+            # Show filtered report table
+            st.dataframe(filtered_display[selected_report_columns], use_container_width=True)
 
-            # Export Excel
+            # EXPORT EXCEL
             buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                df[selected_cols].to_excel(writer, sheet_name="Inventory", index=False)
+
+            with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+                filtered_display.to_excel(writer, sheet_name="Report", index=False)
 
             st.download_button(
-                label="📥 Download Inventory Excel",
+                label="Download Excel Report",
                 data=buffer.getvalue(),
-                file_name="inventory_report.xlsx",
+                file_name="interconnected_report.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
-    # ================================
-    # REPORT 2: STOCK MOVEMENT LOGS
-    # ================================
-    elif report_type == "📥 Stock Movement Logs":
-        st.markdown("## 📥 Stock Movement Logs")
-        st.caption("Tracks all ADD / REMOVE movements for stock")
-
-        stock_logs = get_stock_history()
-
-        if not stock_logs:
-            st.info("No stock movements found.")
-        else:
-            df = pd.DataFrame(stock_logs)
-
-            st.markdown("### 🧩 Column Visibility")
-
-            all_columns = list(df.columns)
-
-            if "visible_stock_report_cols" not in st.session_state:
-                st.session_state.visible_stock_report_cols = all_columns
-
-            selected_cols = st.multiselect(
-                "Select columns to display",
-                all_columns,
-                default=st.session_state.visible_stock_report_cols,
-                key="stock_report_col_selector"
-            )
-
-            st.session_state.visible_stock_report_cols = selected_cols
-
-            st.dataframe(df[selected_cols], use_container_width=True)
-
-            buffer = io.BytesIO()
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                df[selected_cols].to_excel(writer, sheet_name="Stock Movements", index=False)
-
-            st.download_button(
-                label="📥 Download Stock Logs Excel",
-                data=buffer.getvalue(),
-                file_name="stock_movements_report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-    # ================================
-    # REPORT 3: ISSUE + CONSUMPTION REPORT
-    # ================================
-    elif report_type == "📤 Issue & Consumption Report":
-        st.markdown("## 📤 Issue & Consumption Report")
-        st.caption("Tracks who issued what to whom, consumption, remaining stock, and purpose")
-
-        data = get_interconnected_data()
-
-        if not data:
-            st.info("No issue or consumption records found yet.")
-        else:
-            df = pd.DataFrame(data)
-
-            col1, col2 = st.columns([1, 3])
-
-            with col1:
-                mode = st.selectbox(
-                    "View By",
-                    ["Person", "Product", "Category", "Issuer"],
-                    key="issue_report_mode"
-                )
-
-                if mode == "Person":
-                    selected = st.selectbox(
-                        "Select Person",
-                        sorted(df["issued_to"].dropna().unique()),
-                        key="issue_report_person"
-                    )
-                    filtered = df[df["issued_to"] == selected]
-
-                elif mode == "Product":
-                    selected = st.selectbox(
-                        "Select Product",
-                        sorted(df["product"].dropna().unique()),
-                        key="issue_report_product"
-                    )
-                    filtered = df[df["product"] == selected]
-
-                elif mode == "Category":
-                    selected = st.selectbox(
-                        "Select Category",
-                        sorted(df["category"].dropna().unique()),
-                        key="issue_report_category"
-                    )
-                    filtered = df[df["category"] == selected]
-
-                elif mode == "Issuer":
-                    selected = st.selectbox(
-                        "Select Issuer",
-                        sorted(df["issued_by"].dropna().unique()),
-                        key="issue_report_issuer"
-                    )
-                    filtered = df[df["issued_by"] == selected]
-
-            with col2:
-                st.markdown("### 📋 Results")
-
-                all_columns = list(filtered.columns)
-
-                st.markdown("### 🧩 Column Visibility")
-
-                if "visible_issue_report_cols" not in st.session_state:
-                    st.session_state.visible_issue_report_cols = all_columns
-
-                selected_cols = st.multiselect(
-                    "Select columns to display",
-                    all_columns,
-                    default=st.session_state.visible_issue_report_cols,
-                    key="issue_report_col_selector"
-                )
-
-                st.session_state.visible_issue_report_cols = selected_cols
-
-                st.dataframe(filtered[selected_cols], use_container_width=True)
-
-                # Export Excel
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                    filtered[selected_cols].to_excel(writer, sheet_name="Issue Report", index=False)
-
-                st.download_button(
-                    label="📥 Download Issue Report Excel",
-                    data=buffer.getvalue(),
-                    file_name="issue_consumption_report.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                )
-
