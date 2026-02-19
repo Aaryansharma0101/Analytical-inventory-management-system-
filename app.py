@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 from issue_service import update_issue
+from database import init_db
 from Product_service import add_product, get_all_products, update_product, delete_product
 from stock_service import update_stock, get_stock_history
 from issue_service import issue_product, get_issue_logs
@@ -65,6 +66,21 @@ div[role="listbox"] {
 /* Selected multiselect input background */
 div[data-baseweb="select"] > div {
     background-color: #020617 !important;
+}
+
+            
+/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
+
+/* Main App Gradient */
+.stApp {
+    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Sidebar Gradient */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
+    border-right: 1px solid rgba(150,150,150,0.15);
 }
 
 /* ===================== MULTISELECT TAGS ===================== */
@@ -214,14 +230,6 @@ div[role="option"]:hover {
 
 st.divider()
 
-from database import init_db
-
-init_db()   
-
-# THEN session init
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-    st.session_state.user = None
 
 # ---------------- SESSION INIT ----------------
 if "logged_in" not in st.session_state:
@@ -449,54 +457,53 @@ elif page == "Products":
     st.markdown("### ➕ Add New Product")
 
     with st.form("add_product_form"):
+        col1, col2 = st.columns(2)
 
-    col1, col2 = st.columns(2)
+        # LEFT COLUMN
+        with col1:
+            name = st.text_input("Item Name")
+            category = st.text_input("Project")
+            supplier = st.text_input("Supplier")
+            item_code = st.text_input("Item Code")
+            contract_no = st.text_input("Contract No.")
+            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
 
-    # LEFT COLUMN
-    with col1:
-        name = st.text_input("Item Name")
-        category = st.text_input("Project")
-        supplier = st.text_input("Supplier")
-        item_code = st.text_input("Item Code")
-        contract_no = st.text_input("Contract No.")
-        cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
+        # RIGHT COLUMN
+        with col2:
+            unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
+            quantity = st.number_input("Enter Value", min_value=0, step=1)
+            date_added = st.date_input("Date Added")
+            plant_name = st.text_input("Plant Name")
+            gate_pass_no = st.text_input("Gate Pass No.")
+            gate_pass_date = st.date_input("Gate Pass Date")
 
-    # RIGHT COLUMN
-    with col2:
-        unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-        quantity = st.number_input("Enter Value", min_value=0, step=1)
-        date_added = st.date_input("Date Added")
-        plant_name = st.text_input("Plant Name")
-        gate_pass_no = st.text_input("Gate Pass No.")
-        gate_pass_date = st.date_input("Gate Pass Date")
+        # ✅ SUBMIT BUTTON MUST BE INSIDE FORM
+        submitted = st.form_submit_button("Add Product")
 
-    # ✅ SUBMIT BUTTON MUST BE INSIDE FORM
-    submitted = st.form_submit_button("Add Product")
+        if submitted:
+            if safe_action_lock("add_product_lock", cooldown=2):
 
-    if submitted:
-        if safe_action_lock("add_product_lock", cooldown=2):
+                add_product(
+                    name,
+                    category,
+                    quantity,
+                    unit_type,
+                    supplier,
+                    str(date_added),
+                    cost_price,
+                    item_code,
+                    contract_no,
+                    plant_name,
+                    gate_pass_no,
+                    str(gate_pass_date)
+                )
 
-            add_product(
-                name,
-                category,
-                quantity,
-                unit_type,
-                supplier,
-                str(date_added),
-                cost_price,
-                item_code,
-                contract_no,
-                plant_name,
-                gate_pass_no,
-                str(gate_pass_date)
-            )
+                st.success("✅ Product Added Successfully!")
+                st.info("Saved ✔")
+                st.rerun()
 
-            st.success("✅ Product Added Successfully!")
-            st.info("Saved ✔")
-            st.rerun()
-
-        else:
-            st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+            else:
+                st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
 
 # ---------------- STOCK ENTRY ----------------
