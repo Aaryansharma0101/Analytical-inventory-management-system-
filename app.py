@@ -468,7 +468,8 @@ elif page == "Products":
             gate_pass_no = st.text_input("Gate Pass No.")
             gate_pass_date = st.date_input("Gate Pass Date")
 
-
+        
+        submitted = st.form_submit_button("Add Product")
 
             if submitted:
                 if safe_action_lock("add_product_lock", cooldown=2):
