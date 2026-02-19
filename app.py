@@ -449,52 +449,55 @@ elif page == "Products":
     st.markdown("### ➕ Add New Product")
 
     with st.form("add_product_form"):
-        col1, col2 = st.columns(2)
 
-        # LEFT COLUMN
-        with col1:
-            name = st.text_input("Item Name")
-            category = st.text_input("Project")
-            supplier = st.text_input("Supplier")
-            item_code = st.text_input("Item Code")
-            contract_no = st.text_input("Contract No.")
-            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
-        # RIGHT COLUMN
-        with col2:
-            unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
-            quantity = st.number_input("Enter Value", min_value=0, step=1)
-            date_added = st.date_input("Date Added")
-            plant_name = st.text_input("Plant Name")
-            gate_pass_no = st.text_input("Gate Pass No.")
-            gate_pass_date = st.date_input("Gate Pass Date")
+    col1, col2 = st.columns(2)
 
-        
-        submitted = st.form_submit_button("Add Product")
+    # LEFT COLUMN
+    with col1:
+        name = st.text_input("Item Name")
+        category = st.text_input("Project")
+        supplier = st.text_input("Supplier")
+        item_code = st.text_input("Item Code")
+        contract_no = st.text_input("Contract No.")
+        cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
 
-            if submitted:
-                if safe_action_lock("add_product_lock", cooldown=2):
+    # RIGHT COLUMN
+    with col2:
+        unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
+        quantity = st.number_input("Enter Value", min_value=0, step=1)
+        date_added = st.date_input("Date Added")
+        plant_name = st.text_input("Plant Name")
+        gate_pass_no = st.text_input("Gate Pass No.")
+        gate_pass_date = st.date_input("Gate Pass Date")
 
-                    add_product(
-                        name,
-                        category,
-                        quantity,
-                        unit_type,
-                        supplier,
-                        str(date_added),
-                        cost_price,
-                        item_code,
-                        contract_no,
-                        plant_name,
-                        gate_pass_no,
-                        str(gate_pass_date)
-                    )
+    # ✅ SUBMIT BUTTON MUST BE INSIDE FORM
+    submitted = st.form_submit_button("Add Product")
 
-                    st.success("✅ Product Added Successfully!")
-                    st.info("Saved ✔")
-                    st.rerun()
+    if submitted:
+        if safe_action_lock("add_product_lock", cooldown=2):
 
-                else:
-                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+            add_product(
+                name,
+                category,
+                quantity,
+                unit_type,
+                supplier,
+                str(date_added),
+                cost_price,
+                item_code,
+                contract_no,
+                plant_name,
+                gate_pass_no,
+                str(gate_pass_date)
+            )
+
+            st.success("✅ Product Added Successfully!")
+            st.info("Saved ✔")
+            st.rerun()
+
+        else:
+            st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+
 
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
