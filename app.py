@@ -709,117 +709,98 @@ elif page == "Logs":
 
 # ---------------- REPORTS ----------------
 elif page == "Reports":
-    st.subheader("📊 Master Reports")
+    st.subheader("📊 Master Reports (Inventory + Logs)")
 
-    # ================= TOGGLE =================
-    show_issued_only = st.toggle("Show Issued Items Only", value=False)
+    data = get_interconnected_data()
 
-    st.divider()
-
-    # ================= LOAD DATA =================
-    if show_issued_only:
-        data = get_interconnected_data()
-        if not data:
-            st.info("No issued records available.")
-            st.stop()
-        df = pd.DataFrame(data)
+    if not data:
+        st.info("No records available.")
     else:
-        products = get_all_products()
-        if not products:
-            st.info("No inventory available.")
-            st.stop()
-        df = pd.DataFrame(products)
+        df = pd.DataFrame(data)
 
-    # ================= FILTERS =================
-    st.markdown("### 🔎 Filters")
+        # ---------------- FILTER SECTION ----------------
+        st.markdown("### 🔎 Filters")
 
-    col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
 
-    with col1:
-        if "category" in df.columns:
-            category_filter = st.selectbox(
-                "Project",
-                ["All"] + sorted(df["category"].dropna().unique().tolist())
-            )
-        else:
-            category_filter = "All"
-
-    with col2:
-        if show_issued_only and "issued_to" in df.columns:
+        with col1:
             person_filter = st.selectbox(
                 "Person",
                 ["All"] + sorted(df["issued_to"].dropna().unique().tolist())
             )
-        else:
-            person_filter = "All"
 
-    with col3:
-        if show_issued_only and "issued_by" in df.columns:
+        with col2:
+            product_filter = st.selectbox(
+                "Product",
+                ["All"] + sorted(df["product"].dropna().unique().tolist())
+            )
+
+        with col3:
+            category_filter = st.selectbox(
+                "Project",
+                ["All"] + sorted(df["category"].dropna().unique().tolist())
+            )
+
+        with col4:
             issuer_filter = st.selectbox(
                 "Issuer",
                 ["All"] + sorted(df["issued_by"].dropna().unique().tolist())
             )
-        else:
-            issuer_filter = "All"
+        show_issued_only = st.toggle("Show Issued Items Only", value=False)
 
-    # ================= APPLY FILTERS =================
-    filtered = df.copy()
+        # ---------------- APPLY FILTERS ----------------
+        filtered = df.copy()
+        if show_issued_only:
+            filtered = filtered[filtered["issued_to"].notna()]
 
-    if category_filter != "All" and "category" in filtered.columns:
-        filtered = filtered[filtered["category"] == category_filter]
 
-    if person_filter != "All" and "issued_to" in filtered.columns:
-        filtered = filtered[filtered["issued_to"] == person_filter]
+        if person_filter != "All":
+            filtered = filtered[filtered["issued_to"] == person_filter]
 
-    if issuer_filter != "All" and "issued_by" in filtered.columns:
-        filtered = filtered[filtered["issued_by"] == issuer_filter]
+        if product_filter != "All":
+            filtered = filtered[filtered["product"] == product_filter]
 
-    # ================= COLUMN VISIBILITY =================
-    st.markdown("### 🧩 Column Visibility")
-    
-    all_columns = list(filtered.columns)
-    
-    # Initialize session state if not exists
-    if "visible_master_report_columns" not in st.session_state:
-        st.session_state.visible_master_report_columns = all_columns
-    
-    # ✅ Keep only columns that still exist
-    valid_saved_columns = [
-        col for col in st.session_state.visible_master_report_columns
-        if col in all_columns
-    ]
-    
-    # If nothing valid remains, reset
-    if not valid_saved_columns:
-        valid_saved_columns = all_columns
-    
-    selected_columns = st.multiselect(
-        "Select columns to display",
-        all_columns,
-        default=valid_saved_columns,
-        key="master_report_column_selector"
-    )
-    
-    st.session_state.visible_master_report_columns = selected_columns
+        if category_filter != "All":
+            filtered = filtered[filtered["category"] == category_filter]
 
-    # ================= TABLE =================
-    st.markdown("### 📋 Report Data")
+        if issuer_filter != "All":
+            filtered = filtered[filtered["issued_by"] == issuer_filter]
 
-    st.dataframe(
-        filtered[selected_columns],
-        use_container_width=True,
-        height=600
-    )
+        # ---------------- COLUMN VISIBILITY ----------------
+        st.markdown("### 🧩 Column Visibility")
 
-    # ================= EXPORT =================
-    buffer = io.BytesIO()
+        all_columns = list(filtered.columns)
 
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        filtered[selected_columns].to_excel(writer, sheet_name="Report", index=False)
+        if "visible_master_report_columns" not in st.session_state:
+            st.session_state.visible_master_report_columns = all_columns
 
-    st.download_button(
-        label="⬇ Download Excel",
-        data=buffer.getvalue(),
-        file_name="master_report.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        selected_columns = st.multiselect(
+            "Select columns to display",
+            all_columns,
+            default=st.session_state.visible_master_report_columns,
+            key="master_report_column_selector"
+        )
+
+        st.session_state.visible_master_report_columns = selected_columns
+
+        # ---------------- MASTER TABLE ----------------
+        st.markdown("### 📋 Complete Report")
+
+        st.dataframe(
+            filtered[selected_columns],
+            use_container_width=True,
+            height=600
+        )
+
+        # ---------------- EXPORT ----------------
+        buffer = io.BytesIO()
+
+        with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
+            filtered[selected_columns].to_excel(writer, sheet_name="Master Report", index=False)
+
+        st.download_button(
+            label="⬇ Download Excel",
+            data=buffer.getvalue(),
+            file_name="master_inventory_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
