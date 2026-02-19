@@ -69,20 +69,6 @@ div[data-baseweb="select"] > div {
 }
 
             
-/* ===================== ODOO DARK BLUE → BLACK GRADIENT BACKGROUND ===================== */
-
-/* Main App Gradient */
-.stApp {
-    background: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%) !important;
-    background-attachment: fixed !important;
-}
-
-/* Sidebar Gradient */
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #020617 0%, #0b1220 100%) !important;
-    border-right: 1px solid rgba(150,150,150,0.15);
-}
-
 /* ===================== MULTISELECT TAGS ===================== */
 
 /* FORCE override multiselect chip background */
