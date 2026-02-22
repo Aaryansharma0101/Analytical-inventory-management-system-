@@ -11,6 +11,7 @@ from reports_service import get_interconnected_data
 
 import time
 
+init_db()
 def safe_action_lock(key, cooldown=2):
     """
     Prevents double-click actions for 'cooldown' seconds.
