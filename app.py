@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
 import io
@@ -11,7 +12,6 @@ from reports_service import get_interconnected_data
 
 import time
 
-init_db()
 def safe_action_lock(key, cooldown=2):
     """
     Prevents double-click actions for 'cooldown' seconds.
@@ -31,187 +31,757 @@ def safe_action_lock(key, cooldown=2):
 
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Priya engineering And Suppliers",
+    page_title="Aaryan Techno Projects ERP",
     page_icon="📦",
     layout="wide"
 )
 
-st.markdown("""
-<h2 style="margin-bottom:0;">Priya Engineering And Supplier</h2>
-<p style="color:gray; margin-top:0;">Internal Operations Dashboard</p>
+# ---------------- THEME SELECTION ----------------
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+# Render toggle in the sidebar so it's accessible globally
+theme_toggle = st.sidebar.toggle(
+    "☀️ Light Mode", 
+    value=(st.session_state.theme == "light"),
+    key="theme_toggle_widget"
+)
+st.session_state.theme = "light" if theme_toggle else "dark"
+
+# Define dynamic CSS variables for theme modes
+if st.session_state.theme == "light":
+    css_variables = """
+    :root {
+
+        --bg-primary: #f8fafc;
+        --bg-secondary: #eef2f7;
+
+        --bg-gradient:
+            linear-gradient(
+                160deg,
+                #f8fafc 0%,
+                #e2e8f0 45%,
+                #f8fafc 100%
+            );
+
+        --sidebar-gradient:
+            linear-gradient(
+                180deg,
+                #ffffff 0%,
+                #f1f5f9 100%
+            );
+
+        --card-bg: rgba(255,255,255,0.78);
+
+        --border-color: rgba(15,23,42,0.08);
+
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --input-focus-bg: #ffffff;
+
+        --sidebar-tab-bg: rgba(15,23,42,0.03);
+        --sidebar-tab-hover: rgba(15,23,42,0.06);
+
+        --user-card-bg: rgba(15,23,42,0.03);
+
+        --dataframe-shadow: rgba(15,23,42,0.06);
+
+        --listbox-bg: #ffffff;
+
+        --option-hover: rgba(15,23,42,0.04);
+
+        --tab-border: rgba(15,23,42,0.08);
+
+        --button-gradient:
+            linear-gradient(
+                135deg,
+                #38bdf8 0%,
+                #818cf8 100%
+            );
+
+        --button-hover:
+            linear-gradient(
+                135deg,
+                #0ea5e9 0%,
+                #6366f1 100%
+            );
+    }
+    """
+
+else:
+    css_variables = """
+    :root {
+        --bg-primary: #020617;
+        --bg-secondary: #0f172a;
+        --bg-gradient: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%);
+        --sidebar-gradient: linear-gradient(180deg, #020617 0%, #0b1220 100%);
+        --card-bg: rgba(15, 23, 42, 0.4) !important;
+        --border-color: rgba(255, 255, 255, 0.05) !important;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --input-bg: rgba(255, 255, 255, 0.02) !important;
+        --input-border: rgba(255, 255, 255, 0.08) !important;
+        --input-focus-bg: rgba(255, 255, 255, 0.04) !important;
+        --sidebar-tab-bg: rgba(255, 255, 255, 0.02) !important;
+        --sidebar-tab-hover: rgba(255, 255, 255, 0.07) !important;
+        --user-card-bg: rgba(255, 255, 255, 0.03) !important;
+        --dataframe-shadow: rgba(0, 0, 0, 0.2) !important;
+        --listbox-bg: #0f172a !important;
+        --option-hover: rgba(255, 255, 255, 0.06) !important;
+        --tab-border: rgba(255, 255, 255, 0.08) !important;
+    }
+    """
+
+# Inject Dynamic CSS and top bar layout
+st.markdown(f"""
+<div class="top-nav-bar">
+    <span class="app-logo">🏭</span>
+    <div>
+        <h1 class="app-title">Aaryan Techno Projects ERP</h1>
+        <p class="app-subtitle">Internal Operations & Inventory Control Center</p>
+    </div>
+</div>
 
 <style>
+{css_variables}
 
-/* FORCE override multiselect chip background */
-span[data-baseweb="tag"] {
-    background-color: #1f2933 !important;
-    color: #e5e7eb !important;
-    border: 1px solid #374151 !important;
-}
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-/* Remove red close button */
-span[data-baseweb="tag"] svg {
-    fill: #9ca3af !important;
-}
+/* Force Outfit Font & Text Adaptability Everywhere */
+html, body, [class*="css"], .stApp,
+p, span, label, input, select,
+textarea, button,
+h1, h2, h3, h4, h5, h6,
+li, ul {{
 
-/* Hover effect */
-span[data-baseweb="tag"]:hover {
-    background-color: #374151 !important;
-}
+    font-family: 'Outfit', sans-serif !important;
+}}
 
-/* Dropdown list background */
-div[role="listbox"] {
-    background-color: #0f172a !important;
-}
+/* Dynamic Heading and Text Colors */
+h1, h2, h3, h4, h5, h6,
+label,
+.stMarkdown,
+p,
+li,
+ul,
+span:not(.app-logo):not(.app-title):not(.app-subtitle) {{
 
-/* Selected multiselect input background */
-div[data-baseweb="select"] > div {
-    background-color: #020617 !important;
-}
+    color: var(--text-primary) !important;
+}}
 
-            
-/* ===================== MULTISELECT TAGS ===================== */
+/* Hide Streamlit default header bar content injection */
+.block-container::before {{
+    display: none !important;
+}}
 
-/* FORCE override multiselect chip background */
-span[data-baseweb="tag"] {
-    background-color: #1f2933 !important;
-    color: #e5e7eb !important;
-    border: 1px solid #374151 !important;
-}
+/* Main App Gradient Background */
+.stApp {{
 
-/* Remove red close button */
-span[data-baseweb="tag"] svg {
-    fill: #9ca3af !important;
-}
+    background: var(--bg-gradient) !important;
 
-/* Hover effect */
-span[data-baseweb="tag"]:hover {
-    background-color: #374151 !important;
-}
+    background-attachment: fixed !important;
+}}
 
-/* Dropdown list background */
-div[role="listbox"] {
-    background-color: #0f172a !important;
-}
+/* Sidebar Gradient Background */
+section[data-testid="stSidebar"] {{
 
-/* Selected multiselect input background */
-div[data-baseweb="select"] > div {
-    background-color: #020617 !important;
-}
+    background: var(--sidebar-gradient) !important;
 
-/* ===================== TOP ERP HEADER BAR ===================== */
-.block-container::before {
-    content: "Internal Operations Dashboard";
-    display: block;
-    font-weight: 700;
-    font-size: 18px;
-    padding: 12px 18px;
-    border-bottom: 1px solid rgba(150,150,150,0.15);
-    margin-bottom: 12px;
-}
+    border-right:
+        1px solid var(--border-color) !important;
+}}
 
-/* ===================== SIDEBAR ERP MODULE CARDS ===================== */
+/* FIX SIDEBAR TEXT */
+section[data-testid="stSidebar"] * {{
 
-section[data-testid="stSidebar"] .stRadio > div {
-    display: flex;
-    flex-direction: column;
-    gap: 12px !important;
-}
+    color: var(--text-primary) !important;
+}}
 
-/* Force ALL sidebar module boxes equal height */
-section[data-testid="stSidebar"] .stRadio label {
+/* Custom Top Navigation / Header Bar */
+.top-nav-bar {{
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    gap: 18px !important;
+
+    padding: 18px 24px !important;
+
+    background: var(--card-bg) !important;
+
+    border:
+        1px solid var(--border-color) !important;
+
+    border-radius: 16px !important;
+
+    margin-bottom: 24px !important;
+
+    backdrop-filter: blur(12px) !important;
+
+    box-shadow:
+        0 4px 30px var(--dataframe-shadow) !important;
+}}
+
+.app-logo {{
+    font-size: 36px !important;
+}}
+
+.app-title {{
+
+    font-size: 26px !important;
+
+    font-weight: 700 !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            #38bdf8,
+            #818cf8
+        ) !important;
+
+    -webkit-background-clip: text !important;
+
+    -webkit-text-fill-color: transparent !important;
+
+    margin: 0 !important;
+
+    letter-spacing: -0.02em !important;
+}}
+
+.app-subtitle {{
+
+    font-size: 11px !important;
+
+    color: var(--text-muted) !important;
+
+    margin: 2px 0 0 0 !important;
+
+    font-weight: 600 !important;
+
+    text-transform: uppercase !important;
+
+    letter-spacing: 0.1em !important;
+}}
+
+/* Sidebar Section Headers */
+.sidebar-section-header {{
+
+    font-size: 11px !important;
+
+    text-transform: uppercase !important;
+
+    letter-spacing: 0.1em !important;
+
+    color: var(--text-muted) !important;
+
+    font-weight: 700 !important;
+
+    margin-top: 1.5rem !important;
+
+    margin-bottom: 0.5rem !important;
+
+    padding-left: 8px !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+
+    padding-bottom: 4px !important;
+}}
+
+/* ================= INPUTS ================= */
+
+input,
+textarea,
+select {{
+
+    background:
+        var(--input-bg) !important;
+
+    border:
+        1px solid var(--input-border) !important;
+
+    color:
+        var(--text-primary) !important;
+
+    border-radius: 10px !important;
+}}
+
+/* ================= SELECTBOX ================= */
+
+div[data-baseweb="select"] > div {{
+
+    background:
+        var(--input-bg) !important;
+
+    border:
+        1px solid var(--input-border) !important;
+
+    border-radius: 10px !important;
+}}
+
+div[data-baseweb="select"] span {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+div[data-baseweb="select"] input {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= DROPDOWNS ================= */
+
+div[role="listbox"] {{
+
+    background:
+        var(--listbox-bg) !important;
+}}
+
+div[role="option"] {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+div[role="option"]:hover {{
+
+    background:
+        var(--option-hover) !important;
+}}
+
+/* ================= FILE UPLOADER ================= */
+
+[data-testid="stFileUploader"] * {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= DATAFRAME ================= */
+
+div[data-testid="stDataFrame"] {{
+
+    border:
+        1px solid var(--border-color) !important;
+
+    border-radius: 12px !important;
+
+    overflow: hidden !important;
+
+    box-shadow:
+        0 4px 20px var(--dataframe-shadow) !important;
+}}
+
+[data-testid="stDataFrame"] * {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= BUTTONS ================= */
+
+div.stButton > button,
+div.stFormSubmitButton > button {{
+
+    background:
+        var(--button-gradient) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 10px !important;
+
+    font-weight: 600 !important;
+
+    transition: 0.2s ease !important;
+}}
+
+div.stButton > button:hover,
+div.stFormSubmitButton > button:hover {{
+
+    background:
+        var(--button-hover) !important;
+
+    transform: translateY(-1px) !important;
+}}
+
+/* ================= DIVIDERS ================= */
+
+hr {{
+
+    border-color:
+        var(--border-color) !important;
+}}
+
+/* ===================== SIDEBAR NAVIGATION CARDS ===================== */
+
+/* Hide radio circles */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child {{
+    display: none !important;
+}}
+
+/* Sidebar radio button list layout */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 0 !important;
+}}
+
+/* Style labels to look like premium buttons */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{
     display: flex !important;
     align-items: center !important;
-    justify-content: center !important;   /* centers text horizontally */
-    text-align: center !important;
-    height: 56px !important;             /* ✅ fixed equal height */
-    min-height: 56px !important;
-    padding: 0 14px !important;
-    border-radius: 14px !important;
-    border: 1px solid rgba(150,150,150,0.18);
+    justify-content: flex-start !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 46px !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+    border-radius: 12px !important;
+    background: var(--sidebar-tab-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+}}
+
+/* Hover state */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {{
+    background: var(--sidebar-tab-hover) !important;
+    border-color: var(--text-muted) !important;
+    color: var(--text-primary) !important;
+    transform: translateX(4px) !important;
+}}
+
+/* Checked state */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input:checked) {{
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 4px 20px -5px rgba(56, 189, 248, 0.25) !important;
     font-weight: 600 !important;
-    transition: 0.18s ease;
-    white-space: nowrap;                 /* prevents resizing */
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+}}
 
-/* Hover highlight */
-section[data-testid="stSidebar"] .stRadio label:hover {
-    background: rgba(150,150,150,0.08);
-    transform: translateX(3px);
-}
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label p {{
+    margin: 0 !important;
+    padding: 0 !important;
+    color: inherit !important;
+}}
 
-/* Active selection */
-section[data-testid="stSidebar"] .stRadio input:checked + label {
-    outline: 2px solid rgba(255,255,255,0.18);
-}
+/* ===================== USER CARD & SIDEBAR LOGOUT ===================== */
+.user-card {{
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+    background: var(--user-card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 1rem !important;
+}}
+.user-avatar {{
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #38bdf8, #818cf8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
+    color: white !important;
+    font-size: 14px !important;
+}}
+.user-details {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.user-name {{
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: var(--text-primary) !important;
+}}
+.user-role {{
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #38bdf8 !important;
+    letter-spacing: 0.05em !important;
+}}
 
-/* ===================== FORM CARD LAYOUT ===================== */
-form {
-    border: 1px solid rgba(150,150,150,0.18);
-    border-radius: 14px;
-    padding: 18px;
-}
-
-/* Equal spacing between columns */
-div[data-testid="column"] {
-    padding: 0.6rem !important;
-}
-
-/* ===================== INPUT ALIGNMENT ===================== */
-input, textarea, select {
-    height: 42px !important;
-    border-radius: 8px !important;
-}
-
-/* ===================== SECTION SPACING ===================== */
-h1, h2, h3 {
-    margin-bottom: 6px !important;
-}
-
-hr {
-    margin-top: 18px !important;
-    margin-bottom: 18px !important;
-}
-/* ===================== SELECTBOX + MULTISELECT FIX ===================== */
-
-/* Selectbox main container */
-div[data-baseweb="select"] > div {
-    background-color: rgba(255,255,255,0.06) !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
+/* Logout Button */
+div[data-testid="stSidebar"] button {{
+    width: 100% !important;
     border-radius: 10px !important;
-}
+    background-color: transparent !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    transition: all 0.2s ease !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}}
+div[data-testid="stSidebar"] button:hover {{
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+}}
 
-/* Selectbox text */
-div[data-baseweb="select"] span {
-    color: #e5e7eb !important;
-}
+/* ===================== DASHBOARD CUSTOM METRIC CARDS ===================== */
+.metrics-grid {{
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 20px !important;
+    margin-bottom: 25px !important;
+    margin-top: 10px !important;
+}}
+.metric-card {{
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 22px 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 18px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
+    backdrop-filter: blur(12px) !important;
+}}
+.metric-card:hover {{
+    transform: translateY(-4px) !important;
+    border-color: rgba(56, 189, 248, 0.25) !important;
+    box-shadow: 0 10px 30px -10px rgba(56, 189, 248, 0.25) !important;
+}}
+.metric-icon {{
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 22px !important;
+}}
+.metric-info {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.metric-value {{
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    line-height: 1.1 !important;
+}}
+.metric-label {{
+    font-size: 13px !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    margin-top: 2px !important;
+}}
 
-/* Dropdown arrow */
-div[data-baseweb="select"] svg {
-    fill: #e5e7eb !important;
-}
+/* ===================== FORM CARDS & INPUT CONTROLS ===================== */
+form {{
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
+    backdrop-filter: blur(8px) !important;
+}}
 
-/* Dropdown menu background */
-div[role="listbox"] {
-    background-color: #0b1220 !important;
-    border: 1px solid rgba(255,255,255,0.12) !important;
+input, textarea, select {{
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-primary) !important;
     border-radius: 10px !important;
-}
+    padding: 10px 14px !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+}}
+input:focus, textarea:focus, select:focus {{
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2) !important;
+    background-color: var(--input-focus-bg) !important;
+}}
 
-/* Dropdown options */
-div[role="option"] {
-    color: #e5e7eb !important;
-}
+/* Selectbox Overrides */
+div[data-baseweb="select"] > div {{
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    border-radius: 10px !important;
+}}
+div[data-baseweb="select"] span {{
+    color: var(--text-primary) !important;
+}}
+div[data-baseweb="select"] svg {{
+    fill: var(--text-primary) !important;
+}}
+div[role="listbox"] {{
+    background-color: var(--listbox-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+}}
+div[role="option"] {{
+    color: var(--text-secondary) !important;
+}}
+div[role="option"]:hover {{
+    background-color: var(--option-hover) !important;
+}}
 
-/* Hover option */
-div[role="option"]:hover {
-    background-color: rgba(255,255,255,0.08) !important;
-}
+/* Multiselect Tag Overrides */
+span[data-baseweb="tag"] {{
+    background-color: var(--input-bg) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--input-border) !important;
+    border-radius: 6px !important;
+}}
+span[data-baseweb="tag"] svg {{
+    fill: var(--text-secondary) !important;
+}}
+span[data-baseweb="tag"]:hover {{
+    background-color: var(--sidebar-tab-hover) !important;
+}}
 
+/* Styled Streamlit Tabs */
+button[data-baseweb="tab"] {{
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    padding: 10px 20px !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+}}
+button[data-baseweb="tab"][aria-selected="true"] {{
+    color: #38bdf8 !important;
+    border-bottom-color: #38bdf8 !important;
+    font-weight: 600 !important;
+}}
+button[data-baseweb="tab"]:hover {{
+    color: var(--text-primary) !important;
+}}
 
+/* Button & Form Submit Styling */
+div.stButton > button, div.stFormSubmitButton > button {{
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 10px 24px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2) !important;
+    width: 100% !important;
+}}
+div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35) !important;
+    color: #ffffff !important;
+}}
+div.stButton > button:active, div.stFormSubmitButton > button:active {{
+    transform: translateY(1px) !important;
+}}
 
+/* Dataframe & Table Aesthetics */
+div[data-testid="stDataFrame"] {{
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 20px var(--dataframe-shadow) !important;
+}}
+
+/* Helper Divider Override */
+hr {{
+    border-color: var(--border-color) !important;
+}}
+
+/* ================= CUSTOM HTML TABLE ================= */
+
+table {{
+
+    width: 100% !important;
+
+    border-collapse: collapse !important;
+
+    background: var(--card-bg) !important;
+
+    border-radius: 14px !important;
+
+    overflow: hidden !important;
+
+    backdrop-filter: blur(12px) !important;
+}}
+
+/* Header */
+table thead tr {{
+
+    background:
+        rgba(59,130,246,0.08) !important;
+}}
+
+/* Header cells */
+table th {{
+
+    color:
+        var(--text-primary) !important;
+
+    padding: 14px !important;
+
+    text-align: left !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+}}
+
+/* Table rows */
+table td {{
+
+    color:
+        var(--text-primary) !important;
+
+    padding: 12px !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+}}
+
+/* Hover */
+table tbody tr:hover {{
+
+    background:
+        rgba(255,255,255,0.03) !important;
+}}
+/* FORCE SELECTBOX COLORS */
+
+[data-baseweb="select"] * {{
+    color: var(--text-primary) !important;
+}}
+
+[data-baseweb="select"] > div {{
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+}}
+
+div[role="listbox"] {{
+    background: var(--listbox-bg) !important;
+}}
+
+div[role="option"] {{
+    color: var(--text-primary) !important;
+    background: transparent !important;
+}}
+
+div[role="option"]:hover {{
+    background: var(--option-hover) !important;
+}}
 </style>
 """, unsafe_allow_html=True)
 
@@ -262,30 +832,46 @@ if not st.session_state.logged_in:
 role = st.session_state.user["role"]
 
 # ---------------- SIDEBAR ERP NAV ----------------
-st.sidebar.markdown("## Navigation")
+st.sidebar.markdown('<p class="sidebar-section-header">Navigation</p>', unsafe_allow_html=True)
 
-page = st.sidebar.radio(
+page_icons_map = {
+    "📊 Dashboard": "Dashboard",
+    "📦 Products": "Products",
+    "📥 Stock Entry": "Stock Entry",
+    "📤 Issue Stock": "Issue Stock",
+    "📋 Inventory": "Inventory",
+    "📜 Logs": "Logs",
+    "📈 Reports": "Reports"
+}
+
+selected_page_with_icon = st.sidebar.radio(
     "Modules",
-    [
-        "Dashboard",
-        "Products",
-        "Stock Entry",
-        "Issue Stock",
-        "Inventory",
-        "Logs",
-        "Reports"
-    ]
+    list(page_icons_map.keys()),
+    label_visibility="collapsed"
 )
 
-st.sidebar.divider()
+page = page_icons_map[selected_page_with_icon]
 
-st.sidebar.markdown("## User")
-st.sidebar.write(st.session_state.user["username"])
-st.sidebar.write(st.session_state.user["role"].upper())
+st.sidebar.markdown('<p class="sidebar-section-header">Session</p>', unsafe_allow_html=True)
+
+username = st.session_state.user["username"]
+role_display = st.session_state.user["role"].upper()
+initial = username[0].upper() if username else "U"
+
+st.sidebar.markdown(f"""
+<div class="user-card">
+    <div class="user-avatar">{initial}</div>
+    <div class="user-details">
+        <div class="user-name">{username}</div>
+        <div class="user-role">{role_display}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
     st.rerun()
+
 
 # ---------------- DASHBOARD ----------------
 if page == "Dashboard":
@@ -295,13 +881,35 @@ if page == "Dashboard":
     issues = get_issue_logs()
 
     total_products = len(products)
-    low_stock = len([p for p in products if p["quantity"] <= p["min_stock"]])
+    low_stock = len([p for p in products if p.get("quantity", 0) <= p.get("min_stock", float('inf'))])
     total_issues = len(issues)
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Products", total_products)
-    col2.metric("Low Stock Items", low_stock)
-    col3.metric("Total Issues", total_issues)
+    st.markdown(f"""
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">📦</div>
+            <div class="metric-info">
+                <div class="metric-value">{total_products}</div>
+                <div class="metric-label">Total Products</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">⚠️</div>
+            <div class="metric-info">
+                <div class="metric-value">{low_stock}</div>
+                <div class="metric-label">Low Stock Items</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">📋</div>
+            <div class="metric-info">
+                <div class="metric-value">{total_issues}</div>
+                <div class="metric-label">Total Issues</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 
 # ---------------- PRODUCTS MODULE ----------------
 elif page == "Products":
@@ -390,9 +998,9 @@ elif page == "Products":
                                 date_added = None
 
                             # --- Normalize ITEM CODE ---
-                            if item_code.lower() in ["none", "nan", ""]:
-                                item_code = None
-
+                            if item_code:
+                                if isinstance(item_code, str) and item_code.lower() in ["none", "nan", ""]:
+                                    item_code = None
 
                             # UPDATE
                             if item_code and item_code in existing_map:
@@ -428,7 +1036,7 @@ elif page == "Products":
 
                         except Exception as e:
                             errors += 1
-                            st.error(f"Row failed ({name}): {e}")
+                            st.error(f"Row failed: {e}")
 
 
                     st.success(f"✅ Imported {imported} new products")
@@ -439,7 +1047,9 @@ elif page == "Products":
 
                 except Exception as e:
                     st.error(f"Excel import failed: {e}")
-        st.divider()
+
+    st.divider()
+
     # ---------- MANUAL ADD FORM ----------
     st.markdown("### ➕ Add New Product")
 
@@ -492,44 +1102,7 @@ elif page == "Products":
             else:
                 st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
-# ---------------- DELETE PRODUCT SECTION ----------------
-st.divider()
-st.markdown("### 🗑 Delete Product")
 
-if role == "admin":
-
-    products = get_all_products()
-
-    if products:
-
-        delete_product_map = {
-            f"{p['name']} ({p.get('item_code', 'No Code')})": p["product_id"]
-            for p in products
-        }
-
-        selected_delete = st.selectbox(
-            "Select Product to Delete",
-            list(delete_product_map.keys()),
-            key="delete_product_selector"
-        )
-
-        if st.button("Delete Selected Product", key="delete_product_btn"):
-
-            if safe_action_lock("delete_product_lock", cooldown=2):
-
-                product_id = delete_product_map[selected_delete]
-
-                delete_product(product_id)
-
-                st.success("✅ Product deleted successfully!")
-                st.info("Saved ✔")
-                st.rerun()
-
-            else:
-                st.warning("⚠️ Already submitted. Please wait 2 seconds.")
-
-    else:
-        st.info("No products available to delete.")
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
     st.subheader("Stock Entry")
@@ -661,7 +1234,7 @@ elif page == "Issue Stock":
                 else:
                     st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
-        st.divider()                 
+        st.divider()
         st.subheader("✏️ Edit Issued Records")
 
         issues = get_issue_logs()   
@@ -689,8 +1262,8 @@ elif page == "Issue Stock":
             issue = issue_map[selected]
 
             with st.form("edit_issue_form"):
-                issued_to = st.text_input("Issued To", value=issue["issued_to"])
-                issued_qty = st.number_input("Issued Quantity", value=int(issue["issued_qty"]), step=1)
+                issued_to = st.text_input("Issued To", value=issue.get("issued_to", ""))
+                issued_qty = st.number_input("Issued Quantity", value=int(issue.get("issued_qty", 0)), step=1)
                 used_qty = st.number_input("Used Quantity", value=int(issue.get("used_qty", 0)), step=1)
                 usage_purpose = st.text_input("Usage Purpose", value=issue.get("usage_purpose", ""))
 
@@ -713,6 +1286,7 @@ elif page == "Issue Stock":
                         st.error("Failed to update issue.")
         else:
             st.info("No issue records available.")
+
 # ---------------- LOGS ----------------
 elif page == "Logs":
     st.subheader("Stock Movement History")
@@ -777,7 +1351,6 @@ elif page == "Reports":
         if show_issued_only:
             filtered = filtered[filtered["issued_to"].notna()]
 
-
         if person_filter != "All":
             filtered = filtered[filtered["issued_to"] == person_filter]
 
@@ -810,8 +1383,9 @@ elif page == "Reports":
         # ---------------- MASTER TABLE ----------------
         st.markdown("### 📋 Complete Report")
 
+        valid_columns = [col for col in selected_columns if col in filtered.columns]
         st.dataframe(
-            filtered[selected_columns],
+            filtered[valid_columns],
             use_container_width=True,
             height=600
         )
@@ -820,8 +1394,9 @@ elif page == "Reports":
         buffer = io.BytesIO()
 
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            filtered[selected_columns].to_excel(writer, sheet_name="Master Report", index=False)
+            filtered[valid_columns].to_excel(writer, sheet_name="Master Report", index=False)
 
+        buffer.seek(0)
         st.download_button(
             label="⬇ Download Excel",
             data=buffer.getvalue(),
