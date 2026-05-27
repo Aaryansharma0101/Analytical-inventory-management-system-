@@ -492,23 +492,44 @@ elif page == "Products":
             else:
                 st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
-# ---------------- DELETE PRODUCT ----------------
+# ---------------- DELETE PRODUCT SECTION ----------------
+st.divider()
 st.markdown("### 🗑 Delete Product")
 
 if role == "admin":
 
-    if st.button("Delete Product", key="delete_product_btn"):
+    products = get_all_products()
 
-        if safe_action_lock("delete_product_lock", cooldown=2):
+    if products:
 
-            delete_product(product["product_id"])
+        delete_product_map = {
+            f"{p['name']} ({p.get('item_code', 'No Code')})": p["product_id"]
+            for p in products
+        }
 
-            st.success("✅ Product deleted successfully!")
-            st.info("Saved ✔")
-            st.rerun()
+        selected_delete = st.selectbox(
+            "Select Product to Delete",
+            list(delete_product_map.keys()),
+            key="delete_product_selector"
+        )
 
-        else:
-            st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+        if st.button("Delete Selected Product", key="delete_product_btn"):
+
+            if safe_action_lock("delete_product_lock", cooldown=2):
+
+                product_id = delete_product_map[selected_delete]
+
+                delete_product(product_id)
+
+                st.success("✅ Product deleted successfully!")
+                st.info("Saved ✔")
+                st.rerun()
+
+            else:
+                st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+
+    else:
+        st.info("No products available to delete.")
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
     st.subheader("Stock Entry")
