@@ -492,7 +492,23 @@ elif page == "Products":
             else:
                 st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
+# ---------------- DELETE PRODUCT ----------------
+st.markdown("### 🗑 Delete Product")
 
+if role == "admin":
+
+    if st.button("Delete Product", key="delete_product_btn"):
+
+        if safe_action_lock("delete_product_lock", cooldown=2):
+
+            delete_product(product["product_id"])
+
+            st.success("✅ Product deleted successfully!")
+            st.info("Saved ✔")
+            st.rerun()
+
+        else:
+            st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 # ---------------- STOCK ENTRY ----------------
 elif page == "Stock Entry":
     st.subheader("Stock Entry")
