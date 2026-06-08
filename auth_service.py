@@ -43,7 +43,11 @@ def login_user(identifier, password):
     if not user:    
         return False, "User not found", None
 
-    if bcrypt.checkpw(password.encode(), user["password_hash"]):
+    stored_hash = user["password_hash"]
+    if isinstance(stored_hash, str):
+        stored_hash = stored_hash.encode('utf-8')
+
+    if bcrypt.checkpw(password.encode(), stored_hash):
         return True, "Login successful", dict(user)
 
     return False, "Wrong password", None
