@@ -102,4 +102,3 @@ CREATE TABLE IF NOT EXISTS products (
     conn.close()
 
 init_db()
-

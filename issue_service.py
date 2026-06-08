@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from database import get_connection
 from stock_service import update_stock
 
@@ -41,40 +40,38 @@ def get_issue_logs():
     conn.close()
 
     return [dict(row) for row in rows]
-=======
-from database import get_connection
-from stock_service import update_stock
 
-def issue_product(product_id, quantity, issued_to, issued_by="Admin", remarks=""):
+def update_issue(issue_id, new_issued_to, new_qty, new_used_qty, new_purpose):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Deduct stock
-    update_stock(product_id, -quantity, "ISSUE", f"Issued to {issued_to}")
+    # Get old issue record
+    cursor.execute("SELECT product_id, issued_qty FROM issue_logs WHERE issue_id = ?", (issue_id,))
+    old = cursor.fetchone()
 
-    # Log issue
+    if not old:
+        conn.close()
+        return False
+
+    product_id, old_qty = old
+
+    # Calculate stock adjustment
+    difference = new_qty - old_qty
+
+    # Update stock (reverse or deduct)
     cursor.execute("""
-        INSERT INTO issue_logs (product_id, quantity, issued_to, issued_by, remarks)
-        VALUES (?, ?, ?, ?, ?)
-    """, (product_id, quantity, issued_to, issued_by, remarks))
+        UPDATE products 
+        SET quantity = quantity - ? 
+        WHERE product_id = ?
+    """, (difference, product_id))
+
+    # Update issue log
+    cursor.execute("""
+        UPDATE issue_logs
+        SET issued_to = ?, issued_qty = ?, used_qty = ?, usage_purpose = ?
+        WHERE issue_id = ?
+    """, (new_issued_to, new_qty, new_used_qty, new_purpose, issue_id))
 
     conn.commit()
     conn.close()
-
-
-def get_issue_logs():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT il.*, p.name
-        FROM issue_logs il
-        JOIN products p ON il.product_id = p.product_id
-        ORDER BY il.date DESC
-    """)
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [dict(row) for row in rows]
->>>>>>> daab871577fd9f1ad5aa386bcb7b5c270b28f509
+    return True

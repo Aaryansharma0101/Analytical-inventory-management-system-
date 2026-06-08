@@ -1,40 +1,804 @@
-<<<<<<< HEAD
+# -*- coding: utf-8 -*-
 import streamlit as st
 import pandas as pd
+import io
+from issue_service import update_issue
 from database import init_db
-from Product_service import add_product, get_all_products, update_product
+from Product_service import add_product, get_all_products, update_product, delete_product
 from stock_service import update_stock, get_stock_history
 from issue_service import issue_product, get_issue_logs
-from Product_service import add_product, get_all_products, update_product, delete_product
 from auth_service import register_user, login_user
-from database import init_db
-import io 
+from reports_service import get_interconnected_data
 
-init_db()
+import time
 
+def safe_action_lock(key, cooldown=2):
+    """
+    Prevents double-click actions for 'cooldown' seconds.
+    """
+    now = time.time()
+
+    if key not in st.session_state:
+        st.session_state[key] = 0
+
+    if now - st.session_state[key] < cooldown:
+        return False  # blocked
+
+    st.session_state[key] = now
+    return True
+
+
+
+# ---------------- PAGE CONFIG ----------------
 st.set_page_config(
-    page_title="Priya engineering And Supplier",
+    page_title="Aaryan Techno Projects ERP",
     page_icon="📦",
     layout="wide"
 )
 
+# ---------------- THEME SELECTION ----------------
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+# Render toggle in the sidebar so it's accessible globally
+theme_toggle = st.sidebar.toggle(
+    "☀️ Light Mode", 
+    value=(st.session_state.theme == "light"),
+    key="theme_toggle_widget"
+)
+st.session_state.theme = "light" if theme_toggle else "dark"
+
+# Define dynamic CSS variables for theme modes
+if st.session_state.theme == "light":
+    css_variables = """
+    :root {
+
+        --bg-primary: #f8fafc;
+        --bg-secondary: #eef2f7;
+
+        --bg-gradient:
+            linear-gradient(
+                160deg,
+                #f8fafc 0%,
+                #e2e8f0 45%,
+                #f8fafc 100%
+            );
+
+        --sidebar-gradient:
+            linear-gradient(
+                180deg,
+                #ffffff 0%,
+                #f1f5f9 100%
+            );
+
+        --card-bg: rgba(255,255,255,0.78);
+
+        --border-color: rgba(15,23,42,0.08);
+
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+
+        --input-bg: #ffffff;
+        --input-border: #cbd5e1;
+        --input-focus-bg: #ffffff;
+
+        --sidebar-tab-bg: rgba(15,23,42,0.03);
+        --sidebar-tab-hover: rgba(15,23,42,0.06);
+
+        --user-card-bg: rgba(15,23,42,0.03);
+
+        --dataframe-shadow: rgba(15,23,42,0.06);
+
+        --listbox-bg: #ffffff;
+
+        --option-hover: rgba(15,23,42,0.04);
+
+        --tab-border: rgba(15,23,42,0.08);
+
+        --button-gradient:
+            linear-gradient(
+                135deg,
+                #38bdf8 0%,
+                #818cf8 100%
+            );
+
+        --button-hover:
+            linear-gradient(
+                135deg,
+                #0ea5e9 0%,
+                #6366f1 100%
+            );
+    }
+    """
+
+else:
+    css_variables = """
+    :root {
+        --bg-primary: #020617;
+        --bg-secondary: #0f172a;
+        --bg-gradient: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%);
+        --sidebar-gradient: linear-gradient(180deg, #020617 0%, #0b1220 100%);
+        --card-bg: rgba(15, 23, 42, 0.4) !important;
+        --border-color: rgba(255, 255, 255, 0.05) !important;
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --text-muted: #64748b;
+        --input-bg: rgba(255, 255, 255, 0.02) !important;
+        --input-border: rgba(255, 255, 255, 0.08) !important;
+        --input-focus-bg: rgba(255, 255, 255, 0.04) !important;
+        --sidebar-tab-bg: rgba(255, 255, 255, 0.02) !important;
+        --sidebar-tab-hover: rgba(255, 255, 255, 0.07) !important;
+        --user-card-bg: rgba(255, 255, 255, 0.03) !important;
+        --dataframe-shadow: rgba(0, 0, 0, 0.2) !important;
+        --listbox-bg: #0f172a !important;
+        --option-hover: rgba(255, 255, 255, 0.06) !important;
+        --tab-border: rgba(255, 255, 255, 0.08) !important;
+    }
+    """
+
+# Inject Dynamic CSS and top bar layout
+st.markdown(f"""
+<div class="top-nav-bar">
+    <span class="app-logo">🏭</span>
+    <div>
+        <h1 class="app-title">Aaryan Techno Projects ERP</h1>
+        <p class="app-subtitle">Internal Operations & Inventory Control Center</p>
+    </div>
+</div>
+
+<style>
+{css_variables}
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+/* Force Outfit Font & Text Adaptability Everywhere */
+html, body, [class*="css"], .stApp,
+p, span, label, input, select,
+textarea, button,
+h1, h2, h3, h4, h5, h6,
+li, ul {{
+
+    font-family: 'Outfit', sans-serif !important;
+}}
+
+/* Dynamic Heading and Text Colors */
+h1, h2, h3, h4, h5, h6,
+label,
+.stMarkdown,
+p,
+li,
+ul,
+span:not(.app-logo):not(.app-title):not(.app-subtitle) {{
+
+    color: var(--text-primary) !important;
+}}
+
+/* Hide Streamlit default header bar content injection */
+.block-container::before {{
+    display: none !important;
+}}
+
+/* Main App Gradient Background */
+.stApp {{
+
+    background: var(--bg-gradient) !important;
+
+    background-attachment: fixed !important;
+}}
+
+/* Sidebar Gradient Background */
+section[data-testid="stSidebar"] {{
+
+    background: var(--sidebar-gradient) !important;
+
+    border-right:
+        1px solid var(--border-color) !important;
+}}
+
+/* FIX SIDEBAR TEXT */
+section[data-testid="stSidebar"] * {{
+
+    color: var(--text-primary) !important;
+}}
+
+/* Custom Top Navigation / Header Bar */
+.top-nav-bar {{
+
+    display: flex !important;
+
+    align-items: center !important;
+
+    gap: 18px !important;
+
+    padding: 18px 24px !important;
+
+    background: var(--card-bg) !important;
+
+    border:
+        1px solid var(--border-color) !important;
+
+    border-radius: 16px !important;
+
+    margin-bottom: 24px !important;
+
+    backdrop-filter: blur(12px) !important;
+
+    box-shadow:
+        0 4px 30px var(--dataframe-shadow) !important;
+}}
+
+.app-logo {{
+    font-size: 36px !important;
+}}
+
+.app-title {{
+
+    font-size: 26px !important;
+
+    font-weight: 700 !important;
+
+    background:
+        linear-gradient(
+            135deg,
+            #38bdf8,
+            #818cf8
+        ) !important;
+
+    -webkit-background-clip: text !important;
+
+    -webkit-text-fill-color: transparent !important;
+
+    margin: 0 !important;
+
+    letter-spacing: -0.02em !important;
+}}
+
+.app-subtitle {{
+
+    font-size: 11px !important;
+
+    color: var(--text-muted) !important;
+
+    margin: 2px 0 0 0 !important;
+
+    font-weight: 600 !important;
+
+    text-transform: uppercase !important;
+
+    letter-spacing: 0.1em !important;
+}}
+
+/* Sidebar Section Headers */
+.sidebar-section-header {{
+
+    font-size: 11px !important;
+
+    text-transform: uppercase !important;
+
+    letter-spacing: 0.1em !important;
+
+    color: var(--text-muted) !important;
+
+    font-weight: 700 !important;
+
+    margin-top: 1.5rem !important;
+
+    margin-bottom: 0.5rem !important;
+
+    padding-left: 8px !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+
+    padding-bottom: 4px !important;
+}}
+
+/* ================= INPUTS ================= */
+
+input,
+textarea,
+select {{
+
+    background:
+        var(--input-bg) !important;
+
+    border:
+        1px solid var(--input-border) !important;
+
+    color:
+        var(--text-primary) !important;
+
+    border-radius: 10px !important;
+}}
+
+/* ================= SELECTBOX ================= */
+
+div[data-baseweb="select"] > div {{
+
+    background:
+        var(--input-bg) !important;
+
+    border:
+        1px solid var(--input-border) !important;
+
+    border-radius: 10px !important;
+}}
+
+div[data-baseweb="select"] span {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+div[data-baseweb="select"] input {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= DROPDOWNS ================= */
+
+div[role="listbox"] {{
+
+    background:
+        var(--listbox-bg) !important;
+}}
+
+div[role="option"] {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+div[role="option"]:hover {{
+
+    background:
+        var(--option-hover) !important;
+}}
+
+/* ================= FILE UPLOADER ================= */
+
+[data-testid="stFileUploader"] * {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= DATAFRAME ================= */
+
+div[data-testid="stDataFrame"] {{
+
+    border:
+        1px solid var(--border-color) !important;
+
+    border-radius: 12px !important;
+
+    overflow: hidden !important;
+
+    box-shadow:
+        0 4px 20px var(--dataframe-shadow) !important;
+}}
+
+[data-testid="stDataFrame"] * {{
+
+    color:
+        var(--text-primary) !important;
+}}
+
+/* ================= BUTTONS ================= */
+
+div.stButton > button,
+div.stFormSubmitButton > button {{
+
+    background:
+        var(--button-gradient) !important;
+
+    color: white !important;
+
+    border: none !important;
+
+    border-radius: 10px !important;
+
+    font-weight: 600 !important;
+
+    transition: 0.2s ease !important;
+}}
+
+div.stButton > button:hover,
+div.stFormSubmitButton > button:hover {{
+
+    background:
+        var(--button-hover) !important;
+
+    transform: translateY(-1px) !important;
+}}
+
+/* ================= DIVIDERS ================= */
+
+hr {{
+
+    border-color:
+        var(--border-color) !important;
+}}
+
+/* ===================== SIDEBAR NAVIGATION CARDS ===================== */
+
+/* Hide radio circles */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child {{
+    display: none !important;
+}}
+
+/* Sidebar radio button list layout */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {{
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 0 !important;
+}}
+
+/* Style labels to look like premium buttons */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 46px !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+    border-radius: 12px !important;
+    background: var(--sidebar-tab-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    cursor: pointer !important;
+}}
+
+/* Hover state */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {{
+    background: var(--sidebar-tab-hover) !important;
+    border-color: var(--text-muted) !important;
+    color: var(--text-primary) !important;
+    transform: translateX(4px) !important;
+}}
+
+/* Checked state */
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input:checked) {{
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 4px 20px -5px rgba(56, 189, 248, 0.25) !important;
+    font-weight: 600 !important;
+}}
+
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label p {{
+    margin: 0 !important;
+    padding: 0 !important;
+    color: inherit !important;
+}}
+
+/* ===================== USER CARD & SIDEBAR LOGOUT ===================== */
+.user-card {{
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+    background: var(--user-card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 1rem !important;
+}}
+.user-avatar {{
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #38bdf8, #818cf8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-weight: 700 !important;
+    color: white !important;
+    font-size: 14px !important;
+}}
+.user-details {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.user-name {{
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: var(--text-primary) !important;
+}}
+.user-role {{
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    color: #38bdf8 !important;
+    letter-spacing: 0.05em !important;
+}}
+
+/* Logout Button */
+div[data-testid="stSidebar"] button {{
+    width: 100% !important;
+    border-radius: 10px !important;
+    background-color: transparent !important;
+    border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    color: #ef4444 !important;
+    transition: all 0.2s ease !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+}}
+div[data-testid="stSidebar"] button:hover {{
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+}}
+
+/* ===================== DASHBOARD CUSTOM METRIC CARDS ===================== */
+.metrics-grid {{
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 20px !important;
+    margin-bottom: 25px !important;
+    margin-top: 10px !important;
+}}
+.metric-card {{
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 22px 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 18px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
+    backdrop-filter: blur(12px) !important;
+}}
+.metric-card:hover {{
+    transform: translateY(-4px) !important;
+    border-color: rgba(56, 189, 248, 0.25) !important;
+    box-shadow: 0 10px 30px -10px rgba(56, 189, 248, 0.25) !important;
+}}
+.metric-icon {{
+    width: 48px !important;
+    height: 48px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 22px !important;
+}}
+.metric-info {{
+    display: flex !important;
+    flex-direction: column !important;
+}}
+.metric-value {{
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    line-height: 1.1 !important;
+}}
+.metric-label {{
+    font-size: 13px !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    margin-top: 2px !important;
+}}
+
+/* ===================== FORM CARDS & INPUT CONTROLS ===================== */
+form {{
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    padding: 24px !important;
+    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
+    backdrop-filter: blur(8px) !important;
+}}
+
+input, textarea, select {{
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-primary) !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+}}
+input:focus, textarea:focus, select:focus {{
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2) !important;
+    background-color: var(--input-focus-bg) !important;
+}}
+
+/* Selectbox Overrides */
+div[data-baseweb="select"] > div {{
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    border-radius: 10px !important;
+}}
+div[data-baseweb="select"] span {{
+    color: var(--text-primary) !important;
+}}
+div[data-baseweb="select"] svg {{
+    fill: var(--text-primary) !important;
+}}
+div[role="listbox"] {{
+    background-color: var(--listbox-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+}}
+div[role="option"] {{
+    color: var(--text-secondary) !important;
+}}
+div[role="option"]:hover {{
+    background-color: var(--option-hover) !important;
+}}
+
+/* Multiselect Tag Overrides */
+span[data-baseweb="tag"] {{
+    background-color: var(--input-bg) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--input-border) !important;
+    border-radius: 6px !important;
+}}
+span[data-baseweb="tag"] svg {{
+    fill: var(--text-secondary) !important;
+}}
+span[data-baseweb="tag"]:hover {{
+    background-color: var(--sidebar-tab-hover) !important;
+}}
+
+/* Styled Streamlit Tabs */
+button[data-baseweb="tab"] {{
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    padding: 10px 20px !important;
+    transition: all 0.2s ease !important;
+    font-size: 14px !important;
+}}
+button[data-baseweb="tab"][aria-selected="true"] {{
+    color: #38bdf8 !important;
+    border-bottom-color: #38bdf8 !important;
+    font-weight: 600 !important;
+}}
+button[data-baseweb="tab"]:hover {{
+    color: var(--text-primary) !important;
+}}
+
+/* Button & Form Submit Styling */
+div.stButton > button, div.stFormSubmitButton > button {{
+    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 10px !important;
+    padding: 10px 24px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease-in-out !important;
+    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2) !important;
+    width: 100% !important;
+}}
+div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35) !important;
+    color: #ffffff !important;
+}}
+div.stButton > button:active, div.stFormSubmitButton > button:active {{
+    transform: translateY(1px) !important;
+}}
+
+/* Dataframe & Table Aesthetics */
+div[data-testid="stDataFrame"] {{
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 20px var(--dataframe-shadow) !important;
+}}
+
+/* Helper Divider Override */
+hr {{
+    border-color: var(--border-color) !important;
+}}
+
+/* ================= CUSTOM HTML TABLE ================= */
+
+table {{
+
+    width: 100% !important;
+
+    border-collapse: collapse !important;
+
+    background: var(--card-bg) !important;
+
+    border-radius: 14px !important;
+
+    overflow: hidden !important;
+
+    backdrop-filter: blur(12px) !important;
+}}
+
+/* Header */
+table thead tr {{
+
+    background:
+        rgba(59,130,246,0.08) !important;
+}}
+
+/* Header cells */
+table th {{
+
+    color:
+        var(--text-primary) !important;
+
+    padding: 14px !important;
+
+    text-align: left !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+}}
+
+/* Table rows */
+table td {{
+
+    color:
+        var(--text-primary) !important;
+
+    padding: 12px !important;
+
+    border-bottom:
+        1px solid var(--border-color) !important;
+}}
+
+/* Hover */
+table tbody tr:hover {{
+
+    background:
+        rgba(255,255,255,0.03) !important;
+}}
+/* FORCE SELECTBOX COLORS */
+
+[data-baseweb="select"] * {{
+    color: var(--text-primary) !important;
+}}
+
+[data-baseweb="select"] > div {{
+    background: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+}}
+
+div[role="listbox"] {{
+    background: var(--listbox-bg) !important;
+}}
+
+div[role="option"] {{
+    color: var(--text-primary) !important;
+    background: transparent !important;
+}}
+
+div[role="option"]:hover {{
+    background: var(--option-hover) !important;
+}}
+</style>
+""", unsafe_allow_html=True)
+
+st.divider()
 
 
-
-
-# SESSION INIT
+# ---------------- SESSION INIT ----------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.user = None
 
-
-# LOGIN / REGISTER SCREEN
+# ---------------- LOGIN / REGISTER ----------------
 if not st.session_state.logged_in:
     st.title("🔐 Login")
 
     tab1, tab2 = st.tabs(["Login", "Register"])
 
-    # LOGIN TAB
     with tab1:
         login_identifier = st.text_input("Username or Email", key="login_identifier_input")
         login_password = st.text_input("Password", type="password", key="login_password_input")
@@ -50,7 +814,6 @@ if not st.session_state.logged_in:
             else:
                 st.error(msg)
 
-    # REGISTER TAB
     with tab2:
         reg_username = st.text_input("Choose Username", key="register_username_input")
         reg_email = st.text_input("Email", key="register_email_input")
@@ -67,233 +830,466 @@ if not st.session_state.logged_in:
     st.stop()
 
 role = st.session_state.user["role"]
-st.sidebar.markdown("## 👤 User Panel")
-st.sidebar.write(f"**Username:** {st.session_state.user['username']}")
-st.sidebar.write(f"**Role:** {role.upper()}")
-st.sidebar.divider()
 
-if st.sidebar.button("🚪 Logout"):
+# ---------------- SIDEBAR ERP NAV ----------------
+st.sidebar.markdown('<p class="sidebar-section-header">Navigation</p>', unsafe_allow_html=True)
+
+page_icons_map = {
+    "📊 Dashboard": "Dashboard",
+    "📦 Products": "Products",
+    "📥 Stock Entry": "Stock Entry",
+    "📤 Issue Stock": "Issue Stock",
+    "📋 Inventory": "Inventory",
+    "📜 Logs": "Logs",
+    "📈 Reports": "Reports"
+}
+
+selected_page_with_icon = st.sidebar.radio(
+    "Modules",
+    list(page_icons_map.keys()),
+    label_visibility="collapsed"
+)
+
+page = page_icons_map[selected_page_with_icon]
+
+st.sidebar.markdown('<p class="sidebar-section-header">Session</p>', unsafe_allow_html=True)
+
+username = st.session_state.user["username"]
+role_display = st.session_state.user["role"].upper()
+initial = username[0].upper() if username else "U"
+
+st.sidebar.markdown(f"""
+<div class="user-card">
+    <div class="user-avatar">{initial}</div>
+    <div class="user-details">
+        <div class="user-name">{username}</div>
+        <div class="user-role">{role_display}</div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+if st.sidebar.button("Logout"):
     st.session_state.logged_in = False
-    st.session_state.user = None
     st.rerun()
 
-if role == "admin":
-    # existing add product UI here
-    pass
-else:
-    st.warning("Only Admin can add products.")
 
-if role == "admin":
-    if st.button("Delete Product"):
-        delete_product(products["product_id"])
-else:
-    st.info("Delete restricted to Admin.")
+# ---------------- DASHBOARD ----------------
+if page == "Dashboard":
+    st.subheader("Executive Summary")
 
-if role == "admin":
-    # show logs
-    pass
-else:
-    st.warning("Logs are Admin-only.")
+    products = get_all_products()
+    issues = get_issue_logs()
 
-st.set_page_config(page_title="Smart Inventory System", layout="wide")
-init_db()
+    total_products = len(products)
+    low_stock = len([p for p in products if p.get("quantity", 0) <= p.get("min_stock", float('inf'))])
+    total_issues = len(issues)
 
-st.title("Priya engineering And Suppliers")
+    st.markdown(f"""
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">📦</div>
+            <div class="metric-info">
+                <div class="metric-value">{total_products}</div>
+                <div class="metric-label">Total Products</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">⚠️</div>
+            <div class="metric-info">
+                <div class="metric-value">{low_stock}</div>
+                <div class="metric-label">Low Stock Items</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">📋</div>
+            <div class="metric-info">
+                <div class="metric-value">{total_issues}</div>
+                <div class="metric-label">Total Issues</div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-tabs = st.tabs([
-    "➕ Products",
-    "📥 Add Stock",
-    "📤 Issue Stock",
-    "📋 Inventory (Edit)",
-    "📜 Logs",
-    "📊 Interconnected Reports"
-])
 
-# ---------------- TAB 1 — ADD PRODUCTS ----------------
-with tabs[0]:
-    st.header("➕ Add New Product")
+# ---------------- PRODUCTS MODULE ----------------
+elif page == "Products":
+    st.subheader("📦 Product Management")
+
+    # ---------- PRODUCT TABLE ----------
+    products = get_all_products()
+
+    st.markdown("### 📋 Product List")
+
+    if products:
+        df = pd.DataFrame(products)
+        df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
+        st.dataframe(df, use_container_width=True)
+    else:
+        st.info("No products available")
+
+    st.divider()
+
+    # ---------- EXCEL IMPORT ----------
+    st.markdown("### 📥 Import Products from Excel")
+
+    with st.form("excel_import_form", clear_on_submit=False):
+        uploaded_file = st.file_uploader(
+            "Upload Excel File",
+            type=["xlsx"],
+            key="excel_upload"
+        )
+
+        submit_import = st.form_submit_button("Import Products from Excel")
+
+        if submit_import:
+            if not uploaded_file:
+                st.error("Please upload an Excel file first.")
+            else:
+                try:
+                    df_upload = pd.read_excel(uploaded_file)
+                    st.dataframe(df_upload, use_container_width=True)
+
+                    imported = 0
+                    updated = 0
+                    skipped = 0
+                    errors = 0
+
+                    existing = get_all_products()
+                    existing_map = {
+                        (p.get("item_code") or "").strip(): p["product_id"]
+                        for p in existing
+                        if p.get("item_code")
+                    }
+
+                    for _, row in df_upload.iterrows():
+                        try:
+                            # REQUIRED
+                            name = str(row.get("Item Name", "")).strip()
+                            category = str(row.get("PROJECT", "")).strip()
+                            supplier = str(row.get("SUPPLIER", "")).strip()
+
+                            if not name or not category or not supplier:
+                                skipped += 1
+                                continue
+
+                            # OPTIONAL
+                            raw_code = row.get("Material Code")
+
+                            if pd.isna(raw_code) or str(raw_code).strip() == "":
+                                item_code = None
+                            else:
+                                item_code = str(raw_code).strip()
+
+                            contract_no = str(row.get("Contract no.", "")).strip()
+                            unit_type = str(row.get("Unit", "Quantity")).strip()
+                            date_added = str(row.get("Date", "")).strip()
+                            cost_price = float(row.get("CP", 0) or 0)
+                            quantity = int(row.get("Quantity", 0) or 0)
+
+                            # --- Normalize UNIT ---
+                            unit_type = unit_type.capitalize()
+                            if unit_type not in ["Meter", "Quantity"]:
+                                unit_type = "Quantity"   # safe default
+
+                            # --- Normalize DATE ---
+                            if isinstance(row.get("Date"), pd.Timestamp):
+                                date_added = row["Date"].strftime("%Y-%m-%d")
+                            elif date_added.lower() in ["none", "nan", ""]:
+                                date_added = None
+
+                            # --- Normalize ITEM CODE ---
+                            if item_code:
+                                if isinstance(item_code, str) and item_code.lower() in ["none", "nan", ""]:
+                                    item_code = None
+
+                            # UPDATE
+                            if item_code and item_code in existing_map:
+                                update_product(
+                                    existing_map[item_code],
+                                    name,
+                                    category,
+                                    supplier,
+                                    0,
+                                    cost_price,
+                                    0
+                                )
+                                updated += 1
+
+                            # INSERT
+                            else:
+                                add_product(
+                                    name=name,
+                                    category=category,
+                                    quantity=quantity or 0,
+                                    unit_type=unit_type,
+                                    supplier=supplier,
+                                    date_added=date_added,
+                                    cost_price=cost_price or 0,
+                                    item_code=item_code,
+                                    contract_no=contract_no,
+                                    plant_name=row.get("Plant Name"),
+                                    gate_pass_no=row.get("Gate Pass No."),
+                                    gate_pass_date=row.get("Gate Pass Date")
+                                )
+
+                                imported += 1
+
+                        except Exception as e:
+                            errors += 1
+                            st.error(f"Row failed: {e}")
+
+
+                    st.success(f"✅ Imported {imported} new products")
+                    st.info(f"🔁 Updated {updated} existing products")
+                    st.warning(f"⚠️ Skipped {skipped} rows")
+                    if errors:
+                        st.error(f"❌ {errors} rows failed")
+
+                except Exception as e:
+                    st.error(f"Excel import failed: {e}")
+
+    st.divider()
+
+    # ---------- MANUAL ADD FORM ----------
+    st.markdown("### ➕ Add New Product")
 
     with st.form("add_product_form"):
         col1, col2 = st.columns(2)
 
+        # LEFT COLUMN
         with col1:
-            name = st.text_input("item")
+            name = st.text_input("Item Name")
             category = st.text_input("Project")
             supplier = st.text_input("Supplier")
             item_code = st.text_input("Item Code")
             contract_no = st.text_input("Contract No.")
+            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
 
-
+        # RIGHT COLUMN
         with col2:
             unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"])
             quantity = st.number_input("Enter Value", min_value=0, step=1)
-            min_stock = st.number_input("Min Stock Alert Level", min_value=0, step=1, value=5)
-            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
-            sell_price = st.number_input("Sell Price", min_value=0.0, step=0.1)
+            date_added = st.date_input("Date Added")
+            plant_name = st.text_input("Plant Name")
+            gate_pass_no = st.text_input("Gate Pass No.")
+            gate_pass_date = st.date_input("Gate Pass Date")
 
+        # ✅ SUBMIT BUTTON MUST BE INSIDE FORM
         submitted = st.form_submit_button("Add Product")
 
         if submitted:
-            if name.strip() == "":
-                st.error("Product name is required")
-            else:
-                add_product(name, category, quantity, unit_type, min_stock, supplier, cost_price, sell_price)
-                st.success(f"Product '{name}' added successfully!")
+            if safe_action_lock("add_product_lock", cooldown=2):
 
-# ---------------- TAB 2 — ADD STOCK ----------------
-with tabs[1]:
-    st.header("📥 Add Stock")
-
-    products = get_all_products()
-
-    if products:
-        product_map = {p["name"]: p["product_id"] for p in products}
-
-        selected = st.selectbox(
-            "Select Product",
-            list(product_map.keys()),
-            key="add_stock_product"
-        )
-
-        qty = st.number_input("Quantity to Add", min_value=1, step=1, key="add_stock_qty")
-        notes = st.text_input("Notes (optional)", key="add_stock_notes")
-
-        if st.button("Add Stock", key="add_stock_button"):
-            update_stock(product_map[selected], qty, "ADD", notes)
-            st.success("Stock updated successfully!")
-            st.rerun()
-    else:
-        st.info("No products available.")
-
-# ---------------- TAB 3 — ISSUE STOCK ----------------
-with tabs[2]:
-    st.header("📤 Issue Product")
-
-    products = get_all_products()
-
-    if products:
-        product_map = {p["name"]: p["product_id"] for p in products}
-        selected = st.selectbox("Select Product", list(product_map.keys()), key="issue_product")
-
-        issued_to = st.text_input("Issued To", key="issue_to")
-        issued_qty = st.number_input("Issued Quantity", min_value=1, step=1, key="issue_qty")
-
-        st.subheader("🔥 Consumption (Optional)")
-        used_qty = st.number_input("Used Quantity", min_value=0, step=1, key="used_qty")
-        usage_purpose = st.text_input("What was it used for?", key="usage_purpose")
-
-        remaining_qty = issued_qty - used_qty
-        st.info(f"Remaining with user: {remaining_qty}")
-
-        if st.button("📤 Submit Issue"):
-            if used_qty > issued_qty:
-                st.error("Used quantity cannot exceed issued quantity")
-            else:
-                issue_product(
-                    product_map[selected],
-                    issued_to,
-                    st.session_state.user["username"],
-                    issued_qty,
-                    used_qty,
-                    usage_purpose
+                add_product(
+                    name,
+                    category,
+                    quantity,
+                    unit_type,
+                    supplier,
+                    str(date_added),
+                    cost_price,
+                    item_code,
+                    contract_no,
+                    plant_name,
+                    gate_pass_no,
+                    str(gate_pass_date)
                 )
-                st.success("Issue recorded successfully!")
+
+                st.success("✅ Product Added Successfully!")
+                st.info("Saved ✔")
                 st.rerun()
 
-    else:
-        st.info("No products available.")
+            else:
+                st.warning("⚠️ Already submitted. Please wait 2 seconds.")
 
-# ---------------- TAB 4 — INVENTORY VIEW & EDIT ----------------
-# --- TAB 4: VIEW & EDIT INVENTORY ---
-# ---------------- TAB 4 — INVENTORY VIEW, EDIT & DELETE ----------------
-with tabs[3]:
-    st.header("📋 Product Inventory")
+
+# ---------------- STOCK ENTRY ----------------
+elif page == "Stock Entry":
+    st.subheader("Stock Entry")
 
     products = get_all_products()
-    total_products = len(products)
-    low_stock = len([p for p in products if p["quantity"] <= p["min_stock"]])
-
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("📦 Total Products", total_products)
-    col2.metric("⚠️ Low Stock Items", low_stock)
-    col3.metric("📤 Total Issues", len(get_issue_logs()))
 
     if products:
-        df = pd.DataFrame(products)
+        # ---------------- PROJECT FILTER ----------------
+        project_list = sorted(list(set([p["category"] for p in products if p["category"]])))
 
-        # Combine quantity + unit type
-        df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
-
-        # Optional stock warning label
-        df["Stock Status"] = df.apply(
-            lambda x: "⚠️ LOW" if x["quantity"] <= x["min_stock"] else "✅ OK",
-            axis=1
+        selected_project = st.selectbox(
+            "Select Project",
+            ["All Projects"] + project_list,
+            key="stock_entry_project_filter"
         )
 
-        # Hide raw columns if you want
-        df_display = df.drop(columns=["quantity", "unit_type"])
+        # Filter products by selected project
+        if selected_project != "All Projects":
+            products = [p for p in products if p["category"] == selected_project]
 
-        st.dataframe(df_display, use_container_width=True)
-        st.subheader("✏️ Edit Product")
+        if products:
+            product_map = {p["name"]: p["product_id"] for p in products}
 
-        product_map = {f"{p['name']} (ID {p['product_id']})": p for p in products}
-        selected = st.selectbox(
-            "Select Product to Edit or Delete",
-            list(product_map.keys()),
-            key="edit_product_select"
-        )
+            selected = st.selectbox(
+                "Select Product",
+                list(product_map.keys()),
+                key="add_stock_product"
+            )
 
-        product = product_map[selected]
+            unit_type = st.selectbox(
+                "Unit Type",
+                ["Meter", "Quantity"],
+                key="add_stock_unit"
+            )
 
-        col1, col2 = st.columns([3, 1])
+            qty = st.number_input(
+                f"Enter {unit_type} Value",
+                min_value=1,
+                step=1,
+                key="add_stock_qty"
+            )
 
-        # ---- EDIT FORM ----
-        with col1:
-            with st.form("edit_product_form"):
-                colA, colB = st.columns(2)
+            notes = st.text_input("Notes (optional)", key="add_stock_notes")
 
-                with colA:
-                    name = st.text_input("Product Name", value=product["name"])
-                    category = st.text_input("Category", value=product["category"])
-                    supplier = st.text_input("Supplier", value=product["supplier"])
+            # Auto store unit info inside notes
+            final_notes = f"[{unit_type}] {notes}".strip()
 
-                with colB:
-                    min_stock = st.number_input("Min Stock", value=int(product["min_stock"]), step=1)
-                    cost_price = st.number_input("Cost Price", value=float(product["cost_price"] or 0))
-                    sell_price = st.number_input("Sell Price", value=float(product["sell_price"] or 0))
-
-                updated = st.form_submit_button("Update Product")
-
-                if updated:
-                    update_product(
-                        product["product_id"],
-                        name,
-                        category,
-                        supplier,
-                        min_stock,
-                        cost_price,
-                        sell_price
-                    )
-                    st.success("Product updated successfully!")
+            if st.button("Add Stock", key="add_stock_btn"):
+                if safe_action_lock("add_stock_lock", cooldown=2):
+                    update_stock(product_map[selected], qty, "ADD", final_notes)
+                    st.success("✅ Stock Added Successfully!")
+                    st.info("Saved ✔")
                     st.rerun()
-
-        # ---- DELETE BUTTON ----
-        with col2:
-            st.subheader("🗑️ Delete Product")
-
-            if st.button("Delete Product", key="delete_product_button"):
-                delete_product(product["product_id"])
-                st.warning("Product deleted (archived)!")
-                st.rerun()
+                else:
+                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+        else:
+            st.warning("No products found in this project.")
 
     else:
         st.info("No products available.")
 
 
-# ---------------- TAB 5 — LOGS ----------------
-with tabs[4]:
-    st.header("📜 Stock Movement History")
+# ---------------- ISSUE STOCK ----------------
+elif page == "Issue Stock":
+    st.subheader("Issue Inventory")
+
+    products = get_all_products()
+
+    if not products:
+        st.info("No products available.")
+    else:
+        df_all = pd.DataFrame(products)
+
+        # PROJECT FILTER
+        project_list = ["All Projects"] + sorted(
+            df_all["category"].dropna().unique().tolist()
+        )
+
+        selected_project = st.selectbox("Select Project", project_list)
+
+        # APPLY FILTER
+        if selected_project != "All Projects":
+            filtered_products = [p for p in products if p["category"] == selected_project]
+        else:
+            filtered_products = products
+
+        # IF NO PRODUCTS AFTER FILTER
+        if not filtered_products:
+            st.warning("No products found in this project.")
+        else:
+            product_map = {p["name"]: p["product_id"] for p in filtered_products}
+
+            selected = st.selectbox(
+                "Select Product",
+                list(product_map.keys()),
+                key="issue_product"
+            )
+
+            issued_to = st.text_input("Issued To", key="issue_to")
+            issued_qty = st.number_input("Issued Quantity", min_value=1, step=1, key="issue_qty")
+
+            st.markdown("### Consumption (Optional)")
+            used_qty = st.number_input("Used Quantity", min_value=0, step=1, key="used_qty")
+            usage_purpose = st.text_input("What was it used for?", key="usage_purpose")
+
+            remaining_qty = issued_qty - used_qty
+            st.info(f"Remaining with user: {remaining_qty}")
+
+            if st.button("📤 Submit Issue"):
+                if safe_action_lock("issue_lock", cooldown=2):
+
+                    if used_qty > issued_qty:
+                        st.error("Used quantity cannot exceed issued quantity")
+
+                    else:
+                        issue_product(
+                            product_map[selected],
+                            issued_to,
+                            st.session_state.user["username"],
+                            issued_qty,
+                            used_qty,
+                            usage_purpose
+                        )
+
+                        st.success("✅ Issue Recorded Successfully!")
+                        st.info("Saved ✔")
+                        st.rerun()
+
+                else:
+                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+
+        st.divider()
+        st.subheader("✏️ Edit Issued Records")
+
+        issues = get_issue_logs()   
+
+        if issues:
+            df = pd.DataFrame(issues)
+
+            products = get_all_products()
+
+            # Map product_id → Item Name
+            product_lookup = {p["product_id"]: p["name"] for p in products}
+
+            # The following block should only run if issues exist
+            issue_map = {}
+
+            for index, i in enumerate(issues):
+                product_name = product_lookup.get(i["product_id"], "Deleted Product")
+                issued_to = i.get("issued_to", "")
+
+                label = f"Issue #{index+1} — {product_name} → {issued_to}"
+                issue_map[label] = i
+
+            selected = st.selectbox("Select Issue to Edit", list(issue_map.keys()))
+
+            issue = issue_map[selected]
+
+            with st.form("edit_issue_form"):
+                issued_to = st.text_input("Issued To", value=issue.get("issued_to", ""))
+                issued_qty = st.number_input("Issued Quantity", value=int(issue.get("issued_qty", 0)), step=1)
+                used_qty = st.number_input("Used Quantity", value=int(issue.get("used_qty", 0)), step=1)
+                usage_purpose = st.text_input("Usage Purpose", value=issue.get("usage_purpose", ""))
+
+                submitted = st.form_submit_button("Update Issue")
+
+                if submitted:
+                    issue_id = issue.get("issue_id") or issue.get("id")
+                    success = update_issue(
+                        issue_id,
+                        issued_to,
+                        issued_qty,
+                        used_qty,
+                        usage_purpose
+                    )
+
+                    if success:
+                        st.success("Issue updated and stock adjusted!")
+                        st.rerun()
+                    else:
+                        st.error("Failed to update issue.")
+        else:
+            st.info("No issue records available.")
+
+# ---------------- LOGS ----------------
+elif page == "Logs":
+    st.subheader("Stock Movement History")
 
     history = get_stock_history()
     if history:
@@ -301,7 +1297,7 @@ with tabs[4]:
     else:
         st.info("No stock movements yet.")
 
-    st.header("📤 Issue Logs")
+    st.subheader("Issue Logs")
 
     issues = get_issue_logs()
     if issues:
@@ -309,344 +1305,101 @@ with tabs[4]:
     else:
         st.info("No issued products yet.")
 
-
-# ---------------- TAB 7 — INTERCONNECTED REPORTS ----------------
-
-with tabs[5]:
-    st.header("📊 Interconnected Reports")
-    st.caption("Filter usage by Person, Product, Category, or Issuer")
-
-    from reports_service import get_interconnected_data
+# ---------------- REPORTS ----------------
+elif page == "Reports":
+    st.subheader("📊 Master Reports (Inventory + Logs)")
 
     data = get_interconnected_data()
 
     if not data:
-        st.info("No issue or consumption records found yet.")
+        st.info("No records available.")
     else:
         df = pd.DataFrame(data)
 
-        mode = st.selectbox(
-            "View By",
-            ["Person", "Product", "Category", "Issuer"],
-            key="report_mode"
+        # ---------------- FILTER SECTION ----------------
+        st.markdown("### 🔎 Filters")
+
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            person_filter = st.selectbox(
+                "Person",
+                ["All"] + sorted(df["issued_to"].dropna().unique().tolist())
+            )
+
+        with col2:
+            product_filter = st.selectbox(
+                "Product",
+                ["All"] + sorted(df["product"].dropna().unique().tolist())
+            )
+
+        with col3:
+            category_filter = st.selectbox(
+                "Project",
+                ["All"] + sorted(df["category"].dropna().unique().tolist())
+            )
+
+        with col4:
+            issuer_filter = st.selectbox(
+                "Issuer",
+                ["All"] + sorted(df["issued_by"].dropna().unique().tolist())
+            )
+        show_issued_only = st.toggle("Show Issued Items Only", value=False)
+
+        # ---------------- APPLY FILTERS ----------------
+        filtered = df.copy()
+        if show_issued_only:
+            filtered = filtered[filtered["issued_to"].notna()]
+
+        if person_filter != "All":
+            filtered = filtered[filtered["issued_to"] == person_filter]
+
+        if product_filter != "All":
+            filtered = filtered[filtered["product"] == product_filter]
+
+        if category_filter != "All":
+            filtered = filtered[filtered["category"] == category_filter]
+
+        if issuer_filter != "All":
+            filtered = filtered[filtered["issued_by"] == issuer_filter]
+
+        # ---------------- COLUMN VISIBILITY ----------------
+        st.markdown("### 🧩 Column Visibility")
+
+        all_columns = list(filtered.columns)
+
+        if "visible_master_report_columns" not in st.session_state:
+            st.session_state.visible_master_report_columns = all_columns
+
+        selected_columns = st.multiselect(
+            "Select columns to display",
+            all_columns,
+            default=st.session_state.visible_master_report_columns,
+            key="master_report_column_selector"
         )
 
-        if mode == "Person":
-            options = sorted(df["issued_to"].dropna().unique())
-            selected = st.selectbox("Select Person", options)
-            filtered = df[df["issued_to"] == selected]
+        st.session_state.visible_master_report_columns = selected_columns
 
-        elif mode == "Product":
-            options = sorted(df["product"].dropna().unique())
-            selected = st.selectbox("Select Product", options)
-            filtered = df[df["product"] == selected]
+        # ---------------- MASTER TABLE ----------------
+        st.markdown("### 📋 Complete Report")
 
-        elif mode == "Category":
-            options = sorted(df["category"].dropna().unique())
-            selected = st.selectbox("Select Category", options)
-            filtered = df[df["category"] == selected]
+        valid_columns = [col for col in selected_columns if col in filtered.columns]
+        st.dataframe(
+            filtered[valid_columns],
+            use_container_width=True,
+            height=600
+        )
 
-        elif mode == "Issuer":
-            options = sorted(df["issued_by"].dropna().unique())
-            selected = st.selectbox("Select Issuer", options)
-            filtered = df[df["issued_by"] == selected]
-
-        st.subheader("📋 Filtered Results")
-
-        display_cols = [
-            "issued_to", "product", "category",
-            "issued_by", "issued_qty",
-            "used_qty", "remaining_qty",
-            "usage_purpose", "date"
-        ]
-
-        filtered_display = filtered[display_cols]
-
-        st.dataframe(filtered_display, use_container_width=True)
-
-        # -------- EXPORT TO EXCEL --------
-        st.subheader("📤 Export Report")
-
+        # ---------------- EXPORT ----------------
         buffer = io.BytesIO()
 
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            filtered_display.to_excel(writer, sheet_name="Report", index=False)
+            filtered[valid_columns].to_excel(writer, sheet_name="Master Report", index=False)
 
+        buffer.seek(0)
         st.download_button(
-            label="📥 Download Excel Report",
+            label="⬇ Download Excel",
             data=buffer.getvalue(),
-            file_name="interconnected_report.xlsx",
+            file_name="master_inventory_report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-=======
-import streamlit as st
-import pandas as pd
-
-from database import init_db
-from Product_service import add_product, get_all_products, update_product
-from stock_service import update_stock, get_stock_history
-from issue_service import issue_product, get_issue_logs
-from Product_service import add_product, get_all_products, update_product, delete_product
-from Stockout_prediction import predict_stockout_days
-from Usage_analytics import top_issued_products, slow_fast_products, dead_stock
-
-
-
-
-st.set_page_config(page_title="Smart Inventory System", layout="wide")
-init_db()
-
-st.title("📦 Smart Inventory Management System")
-
-tabs = st.tabs([
-    "➕ Products",
-    "📥 Add Stock",
-    "📤 Issue Stock",
-    "📋 Inventory (Edit)",
-    "📜 Logs",
-    "🧠 Smart Alerts",
-    "📊 Analytics Dashboard"
-])
-
-# ---------------- TAB 1 — ADD PRODUCTS ----------------
-with tabs[0]:
-    st.header("➕ Add New Product")
-
-    with st.form("add_product_form"):
-        col1, col2 = st.columns(2)
-
-        with col1:
-            name = st.text_input("Product Name")
-            category = st.text_input("Category")
-            supplier = st.text_input("Supplier")
-
-        with col2:
-            quantity = st.number_input("Initial Quantity", min_value=0, step=1)
-            min_stock = st.number_input("Min Stock Alert Level", min_value=0, step=1, value=5)
-            cost_price = st.number_input("Cost Price", min_value=0.0, step=0.1)
-            sell_price = st.number_input("Sell Price", min_value=0.0, step=0.1)
-
-        submitted = st.form_submit_button("Add Product")
-
-        if submitted:
-            if name.strip() == "":
-                st.error("Product name is required")
-            else:
-                add_product(name, category, quantity, min_stock, supplier, cost_price, sell_price)
-                st.success(f"Product '{name}' added successfully!")
-
-# ---------------- TAB 2 — ADD STOCK ----------------
-with tabs[1]:
-    st.header("📥 Add Stock")
-
-    products = get_all_products()
-
-    if products:
-        product_map = {p["name"]: p["product_id"] for p in products}
-
-        selected = st.selectbox(
-            "Select Product",
-            list(product_map.keys()),
-            key="add_stock_product"
-        )
-
-        qty = st.number_input("Quantity to Add", min_value=1, step=1, key="add_stock_qty")
-        notes = st.text_input("Notes (optional)", key="add_stock_notes")
-
-        if st.button("Add Stock", key="add_stock_button"):
-            update_stock(product_map[selected], qty, "ADD", notes)
-            st.success("Stock updated successfully!")
-            st.rerun()
-    else:
-        st.info("No products available.")
-
-# ---------------- TAB 3 — ISSUE STOCK ----------------
-with tabs[2]:
-    st.header("📤 Issue Stock")
-
-    products = get_all_products()
-
-    if products:
-        product_map = {p["name"]: p for p in products}
-
-        selected = st.selectbox(
-            "Select Product",
-            list(product_map.keys()),
-            key="issue_stock_product"
-        )
-
-        product = product_map[selected]
-        available = product["quantity"]
-
-        st.write(f"Available Stock: **{available}**")
-
-        qty = st.number_input("Quantity to Issue", min_value=1, step=1, key="issue_qty")
-        issued_to = st.text_input("Issued To (Person / Dept)", key="issue_to")
-        remarks = st.text_input("Remarks", key="issue_remarks")
-
-        if st.button("Issue Product", key="issue_button"):
-            if qty > available:
-                st.error("Not enough stock available!")
-            elif issued_to.strip() == "":
-                st.error("Please enter who the item is issued to.")
-            else:
-                issue_product(product["product_id"], qty, issued_to, "Admin", remarks)
-                st.success("Product issued successfully!")
-                st.rerun()
-    else:
-        st.info("No products available.")
-
-# ---------------- TAB 4 — INVENTORY VIEW & EDIT ----------------
-# --- TAB 4: VIEW & EDIT INVENTORY ---
-# ---------------- TAB 4 — INVENTORY VIEW, EDIT & DELETE ----------------
-with tabs[3]:
-    st.header("📋 Product Inventory")
-
-    products = get_all_products()
-
-    if products:
-        df = pd.DataFrame(products)
-        st.dataframe(df, use_container_width=True)
-
-        st.subheader("✏️ Edit Product")
-
-        product_map = {f"{p['name']} (ID {p['product_id']})": p for p in products}
-        selected = st.selectbox(
-            "Select Product to Edit or Delete",
-            list(product_map.keys()),
-            key="edit_product_select"
-        )
-
-        product = product_map[selected]
-
-        col1, col2 = st.columns([3, 1])
-
-        # ---- EDIT FORM ----
-        with col1:
-            with st.form("edit_product_form"):
-                colA, colB = st.columns(2)
-
-                with colA:
-                    name = st.text_input("Product Name", value=product["name"])
-                    category = st.text_input("Category", value=product["category"])
-                    supplier = st.text_input("Supplier", value=product["supplier"])
-
-                with colB:
-                    min_stock = st.number_input("Min Stock", value=int(product["min_stock"]), step=1)
-                    cost_price = st.number_input("Cost Price", value=float(product["cost_price"] or 0))
-                    sell_price = st.number_input("Sell Price", value=float(product["sell_price"] or 0))
-
-                updated = st.form_submit_button("Update Product")
-
-                if updated:
-                    update_product(
-                        product["product_id"],
-                        name,
-                        category,
-                        supplier,
-                        min_stock,
-                        cost_price,
-                        sell_price
-                    )
-                    st.success("Product updated successfully!")
-                    st.rerun()
-
-        # ---- DELETE BUTTON ----
-        with col2:
-            st.subheader("🗑️ Delete Product")
-
-            if st.button("Delete Product", key="delete_product_button"):
-                delete_product(product["product_id"])
-                st.warning("Product deleted (archived)!")
-                st.rerun()
-
-    else:
-        st.info("No products available.")
-
-
-# ---------------- TAB 5 — LOGS ----------------
-with tabs[4]:
-    st.header("📜 Stock Movement History")
-
-    history = get_stock_history()
-    if history:
-        st.dataframe(pd.DataFrame(history), use_container_width=True)
-    else:
-        st.info("No stock movements yet.")
-
-    st.header("📤 Issue Logs")
-
-    issues = get_issue_logs()
-    if issues:
-        st.dataframe(pd.DataFrame(issues), use_container_width=True)
-    else:
-        st.info("No issued products yet.")
-
-# ---------------- TAB 6 — SMART LOW STOCK PREDICTION ----------------
-with tabs[5]:
-    st.header("🧠 Smart Low Stock Prediction")
-
-    predictions = predict_stockout_days()
-
-    if predictions:
-        df = pd.DataFrame(predictions)
-
-        def highlight_risk(row):
-            if row["risk"] == "HIGH":
-                return ["background-color: #ff4d4d"] * len(row)
-            elif row["risk"] == "MEDIUM":
-                return ["background-color: #fff3cd"] * len(row)
-            elif row["risk"] == "LOW":
-                return ["background-color: #d4edda"] * len(row)
-            return [""] * len(row)
-
-        st.dataframe(df.style.apply(highlight_risk, axis=1), use_container_width=True)
-
-        st.caption("HIGH = urgent restock | MEDIUM = monitor | LOW = safe")
-    else:
-        st.info("No prediction data available yet.")
-
-# ---------------- TAB 7 — ANALYTICS DASHBOARD ----------------
-with tabs[6]:
-    st.header("📊 Inventory Analytics Dashboard")
-
-    top_products = top_issued_products()
-    fast_slow = slow_fast_products()
-    dead = dead_stock()
-
-    # ---- KPI Metrics ----
-    st.subheader("📌 Key Stats")
-
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total Products", len(get_all_products()))
-    with col2:
-        st.metric("Total Issued Items", int(top_products["issued_qty"].sum()) if not top_products.empty else 0)
-    with col3:
-        st.metric("Dead Stock Items", len(dead))
-
-    # ---- Top Issued Products Chart ----
-    st.subheader("🏆 Top Issued Products")
-
-    if not top_products.empty:
-        chart_data = top_products[["name", "issued_qty"]].set_index("name")
-        st.bar_chart(chart_data)
-    else:
-        st.info("No issue data yet.")
-
-    # ---- Fast vs Slow Moving ----
-    st.subheader("🔥 Fast vs Slow Moving Products")
-
-    if not fast_slow.empty:
-        st.dataframe(fast_slow[["name", "issued_qty", "quantity"]])
-    else:
-        st.info("No usage trend data yet.")
-
-    # ---- Dead Stock ----
-    st.subheader("🧊 Dead Stock (Unused Items)")
-
-    if not dead.empty:
-        st.dataframe(dead[["name", "quantity"]], use_container_width=True)
-    else:
-        st.success("No dead stock — all products are moving!")
->>>>>>> daab871577fd9f1ad5aa386bcb7b5c270b28f509

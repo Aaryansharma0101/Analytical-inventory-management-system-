@@ -8,11 +8,16 @@ def register_user(username, email, password):
     hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt())
 
     try:
-        cursor.execute("""
-            INSERT INTO users (username, email, password_hash)
-            VALUES (?, ?, ?)
-        """, (username, email, hashed))
+        cursor.execute("SELECT COUNT(*) FROM users")
+        user_count = cursor.fetchone()[0]
 
+        # First registered user becomes ADMIN
+        role = "admin" if user_count == 0 else "user"
+
+        cursor.execute("""
+            INSERT INTO users (username, email, password_hash, role)
+            VALUES (?, ?, ?, ?)
+        """, (username, email, hashed, role))
         conn.commit()
         return True, "User registered successfully"
 
@@ -35,7 +40,7 @@ def login_user(identifier, password):
     user = cursor.fetchone()
     conn.close()
 
-    if not user:
+    if not user:    
         return False, "User not found", None
 
     if bcrypt.checkpw(password.encode(), user["password_hash"]):
