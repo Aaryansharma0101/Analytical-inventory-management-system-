@@ -14,8 +14,7 @@ def top_issued_products():
     if issues.empty:
         return pd.DataFrame()
 
-    usage = issues.groupby("product_id")["quantity"].sum().reset_index()
-    usage.rename(columns={"quantity": "issued_qty"}, inplace=True)
+    usage = issues.groupby("product_id")["issued_qty"].sum().reset_index()
 
     merged = usage.merge(products, on="product_id")
     return merged.sort_values(by="issued_qty", ascending=False)
@@ -27,8 +26,7 @@ def slow_fast_products():
         products["issued_qty"] = 0
         return products
 
-    usage = issues.groupby("product_id")["quantity"].sum().reset_index()
-    usage.rename(columns={"quantity": "issued_qty"}, inplace=True)
+    usage = issues.groupby("product_id")["issued_qty"].sum().reset_index()
 
     merged = products.merge(usage, on="product_id", how="left").fillna(0)
     return merged.sort_values(by="issued_qty", ascending=False)

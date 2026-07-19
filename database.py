@@ -22,26 +22,61 @@ def init_db():
 
     # Products Table
     cursor.execute("""
-CREATE TABLE IF NOT EXISTS products (
-    product_id INTEGER PRIMARY KEY AUTOINCREMENT,
-    unit_type TEXT DEFAULT 'Quantity',
-    name TEXT,
-    category TEXT,
-    quantity INTEGER DEFAULT 0,
-    min_stock INTEGER DEFAULT 5,
-    item_code TEXT UNIQUE,
-    contract_number TEXT,
-    supplier TEXT,
-    plant_name TEXT,
-    gate_pass_no TEXT,
-    gate_pass_date TEXT,
-    date_added TEXT,
-    cost_price REAL,
-    sell_price REAL,
-    status TEXT DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-""")
+    CREATE TABLE IF NOT EXISTS products (
+        product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        unit_type TEXT DEFAULT 'Quantity',
+        name TEXT,
+        category TEXT,
+        quantity INTEGER DEFAULT 0,
+        item_code TEXT UNIQUE,
+        contract_number TEXT,
+        supplier TEXT,
+        plant_name TEXT,
+        gate_pass_no TEXT,
+        gate_pass_date TEXT,
+        date_added TEXT,
+        cost_price REAL,
+        sell_price REAL,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        initial_quantity INTEGER DEFAULT 0
+    )
+    """)
+    # Migration: handle existing min_stock column if present
+    cursor.execute("PRAGMA table_info(products)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if 'min_stock' in columns:
+        # Rename old table
+        cursor.execute("ALTER TABLE products RENAME TO products_old")
+        # Recreate new table without min_stock (already created above)
+        cursor.execute("""
+        CREATE TABLE products (
+            product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            unit_type TEXT DEFAULT 'Quantity',
+            name TEXT,
+            category TEXT,
+            quantity INTEGER DEFAULT 0,
+            item_code TEXT UNIQUE,
+            contract_number TEXT,
+            supplier TEXT,
+            plant_name TEXT,
+            gate_pass_no TEXT,
+            gate_pass_date TEXT,
+            date_added TEXT,
+            cost_price REAL,
+            sell_price REAL,
+            status TEXT DEFAULT 'active',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            initial_quantity INTEGER DEFAULT 0
+        )
+        """)
+        # Copy data, setting initial_quantity = quantity
+        cursor.execute("""
+        INSERT INTO products (product_id, unit_type, name, category, quantity, item_code, contract_number, supplier, plant_name, gate_pass_no, gate_pass_date, date_added, cost_price, sell_price, status, created_at, initial_quantity)
+        SELECT product_id, unit_type, name, category, quantity, item_code, contract_number, supplier, plant_name, gate_pass_no, gate_pass_date, date_added, cost_price, sell_price, status, created_at, quantity FROM products_old
+        """)
+        cursor.execute("DROP TABLE products_old")
+    conn.commit()
 
 
     # Stock Movements Table

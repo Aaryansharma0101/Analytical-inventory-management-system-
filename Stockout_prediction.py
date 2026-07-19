@@ -34,7 +34,7 @@ def predict_stockout_days():
 
         product_issues["date"] = pd.to_datetime(product_issues["date"])
 
-        total_issued = product_issues["quantity"].sum()
+        total_issued = product_issues["issued_qty"].sum()
         days_active = (product_issues["date"].max() - product_issues["date"].min()).days + 1
 
         avg_daily_usage = total_issued / max(days_active, 1)

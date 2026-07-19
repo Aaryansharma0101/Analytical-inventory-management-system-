@@ -9,6 +9,11 @@ from stock_service import update_stock, get_stock_history
 from issue_service import issue_product, get_issue_logs
 from auth_service import register_user, login_user
 from reports_service import get_interconnected_data
+from components import (
+    inject_components, render_table, render_select, render_multiselect,
+    render_tabs, render_expander, render_alert, render_metric,
+    render_download_button
+)
 
 import time
 
@@ -32,115 +37,349 @@ def safe_action_lock(key, cooldown=2):
 # ---------------- PAGE CONFIG ----------------
 st.set_page_config(
     page_title="Aaryan Techno Projects ERP",
-    page_icon="📦",
+    page_icon=None,
     layout="wide"
 )
 
-# ---------------- THEME SELECTION ----------------
-if "theme" not in st.session_state:
-    st.session_state.theme = "dark"
+# Lock theme to light
+st.session_state.theme = "light"
 
-# Render toggle in the sidebar so it's accessible globally
-theme_toggle = st.sidebar.toggle(
-    "☀️ Light Mode", 
-    value=(st.session_state.theme == "light"),
-    key="theme_toggle_widget"
-)
-st.session_state.theme = "light" if theme_toggle else "dark"
-
-# Define dynamic CSS variables for theme modes
-if st.session_state.theme == "light":
-    css_variables = """
-    :root {
-
-        --bg-primary: #f8fafc;
-        --bg-secondary: #eef2f7;
-
-        --bg-gradient:
-            linear-gradient(
-                160deg,
-                #f8fafc 0%,
-                #e2e8f0 45%,
-                #f8fafc 100%
-            );
-
-        --sidebar-gradient:
-            linear-gradient(
-                180deg,
-                #ffffff 0%,
-                #f1f5f9 100%
-            );
-
-        --card-bg: rgba(255,255,255,0.78);
-
-        --border-color: rgba(15,23,42,0.08);
-
-        --text-primary: #0f172a;
-        --text-secondary: #475569;
-        --text-muted: #64748b;
-
-        --input-bg: #ffffff;
-        --input-border: #cbd5e1;
-        --input-focus-bg: #ffffff;
-
-        --sidebar-tab-bg: rgba(15,23,42,0.03);
-        --sidebar-tab-hover: rgba(15,23,42,0.06);
-
-        --user-card-bg: rgba(15,23,42,0.03);
-
-        --dataframe-shadow: rgba(15,23,42,0.06);
-
-        --listbox-bg: #ffffff;
-
-        --option-hover: rgba(15,23,42,0.04);
-
-        --tab-border: rgba(15,23,42,0.08);
-
-        --button-gradient:
-            linear-gradient(
-                135deg,
-                #38bdf8 0%,
-                #818cf8 100%
-            );
-
-        --button-hover:
-            linear-gradient(
-                135deg,
-                #0ea5e9 0%,
-                #6366f1 100%
-            );
-    }
-    """
-
-else:
-    css_variables = """
-    :root {
-        --bg-primary: #020617;
-        --bg-secondary: #0f172a;
-        --bg-gradient: linear-gradient(160deg, #020617 0%, #0f172a 45%, #020617 100%);
-        --sidebar-gradient: linear-gradient(180deg, #020617 0%, #0b1220 100%);
-        --card-bg: rgba(15, 23, 42, 0.4) !important;
-        --border-color: rgba(255, 255, 255, 0.05) !important;
-        --text-primary: #f8fafc;
-        --text-secondary: #94a3b8;
-        --text-muted: #64748b;
-        --input-bg: rgba(255, 255, 255, 0.02) !important;
-        --input-border: rgba(255, 255, 255, 0.08) !important;
-        --input-focus-bg: rgba(255, 255, 255, 0.04) !important;
-        --sidebar-tab-bg: rgba(255, 255, 255, 0.02) !important;
-        --sidebar-tab-hover: rgba(255, 255, 255, 0.07) !important;
-        --user-card-bg: rgba(255, 255, 255, 0.03) !important;
-        --dataframe-shadow: rgba(0, 0, 0, 0.2) !important;
-        --listbox-bg: #0f172a !important;
-        --option-hover: rgba(255, 255, 255, 0.06) !important;
-        --tab-border: rgba(255, 255, 255, 0.08) !important;
-    }
-    """
+css_variables = """
+:root {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #f1f5f9;
+    --bg-gradient: linear-gradient(160deg, #f0f4f8 0%, #e2e8f0 30%, #f8fafc 100%);
+    --sidebar-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    --card-bg: #ffffff;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+    --card-shadow-hover: 0 10px 25px -5px rgba(0,0,0,0.08), 0 4px 10px -5px rgba(0,0,0,0.04);
+    --border-color: #e2e8f0;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-light: rgba(59,130,246,0.1);
+    --success: #10b981;
+    --success-light: rgba(16,185,129,0.1);
+    --warning: #f59e0b;
+    --warning-light: rgba(245,158,11,0.1);
+    --danger: #ef4444;
+    --danger-light: rgba(239,68,68,0.1);
+    --input-bg: #ffffff;
+    --input-border: #e2e8f0;
+    --input-focus-bg: #ffffff;
+    --sidebar-tab-bg: #f8fafc;
+    --sidebar-tab-hover: #f1f5f9;
+    --user-card-bg: #f8fafc;
+    --dataframe-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    --listbox-bg: #ffffff;
+    --option-hover: #f1f5f9;
+    --tab-border: #e2e8f0;
+    --button-gradient: #3b82f6;
+    --button-hover: #2563eb;
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+"""
 
 # Inject Dynamic CSS and top bar layout
+css_styles = """
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300..700&display=swap');
+
+/* ---------- GLOBAL FONT & TEXT ---------- */
+* { font-family: var(--font-family) !important; }
+html, body, [class*="css"], .stApp, p, span, label, input, select,
+textarea, button, h1, h2, h3, h4, h5, h6, li, ul, div {
+    font-family: var(--font-family) !important;
+}
+h1, h2, h3, h4, h5, h6, .stMarkdown, li, ul {
+    color: var(--text-primary) !important;
+}
+p, span, label, .st-cb, .st-da, .st-dv, .st-ea, .st-el {
+    color: var(--text-secondary) !important;
+}
+.block-container::before { display: none !important; }
+
+/* ---------- MAIN APP ---------- */
+.stApp {
+    background: var(--bg-gradient) !important;
+    background-attachment: fixed !important;
+}
+[data-testid="stMain"] { background: transparent !important; }
+[data-testid="stBlockContainer"] { padding: 1.5rem 2rem !important; }
+[data-testid="stVerticalBlock"] { gap: 12px !important; }
+
+/* ---------- SIDEBAR ---------- */
+section[data-testid="stSidebar"] {
+    background: var(--sidebar-gradient) !important;
+    border-right: 1px solid var(--border-color) !important;
+}
+section[data-testid="stSidebar"] * { color: var(--text-primary) !important; }
+
+/* ---------- TOP NAV BAR ---------- */
+.top-nav-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 16px 24px !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 12px !important;
+    margin-bottom: 24px !important;
+    box-shadow: var(--card-shadow) !important;
+    transition: box-shadow 0.2s ease !important;
+}
+.top-nav-bar:hover { box-shadow: var(--card-shadow-hover) !important; }
+.app-title { font-size: 22px !important; font-weight: 700 !important; color: var(--text-primary) !important; margin: 0 !important; letter-spacing: -0.02em !important; }
+.app-subtitle { font-size: 11px !important; color: var(--text-muted) !important; margin: 2px 0 0 0 !important; font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; }
+
+/* ---------- STOCK BADGES ---------- */
+.stock-badge { display: inline-flex !important; align-items: center !important; gap: 4px !important; padding: 4px 10px !important; border-radius: 20px !important; font-size: 12px !important; font-weight: 600 !important; line-height: 1 !important; }
+.stock-badge-safe { background: var(--success-light) !important; color: var(--success) !important; }
+.stock-badge-warning { background: var(--warning-light) !important; color: var(--warning) !important; }
+.stock-badge-danger { background: var(--danger-light) !important; color: var(--danger) !important; }
+
+/* ---------- SIDEBAR NAV RADIO ---------- */
+.sidebar-section-header { font-size: 11px !important; text-transform: uppercase !important; letter-spacing: 0.1em !important; color: var(--text-muted) !important; font-weight: 700 !important; margin-top: 1.5rem !important; margin-bottom: 0.5rem !important; padding-left: 8px !important; border-bottom: 1px solid var(--border-color) !important; padding-bottom: 4px !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child { display: none !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] { display: flex !important; flex-direction: column !important; gap: 6px !important; padding: 0 !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { display: flex !important; align-items: center !important; justify-content: flex-start !important; width: 100% !important; min-height: 44px !important; padding: 10px 14px !important; margin: 0 !important; border-radius: 10px !important; background: var(--sidebar-tab-bg) !important; border: 1px solid transparent !important; color: var(--text-secondary) !important; font-weight: 500 !important; font-size: 14px !important; transition: all 0.2s cubic-bezier(0.4,0,0.2,1) !important; cursor: pointer !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover { background: var(--sidebar-tab-hover) !important; border-color: var(--border-color) !important; color: var(--text-primary) !important; transform: translateX(3px) !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input:checked) { background: var(--accent-light) !important; border: 1px solid rgba(59,130,246,0.3) !important; color: var(--accent) !important; font-weight: 600 !important; }
+section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label p { margin: 0 !important; padding: 0 !important; color: inherit !important; }
+
+/* ---------- USER CARD ---------- */
+.user-card { display: flex !important; align-items: center !important; gap: 12px !important; padding: 12px !important; border-radius: 10px !important; background: var(--user-card-bg) !important; border: 1px solid var(--border-color) !important; margin-top: 0.5rem !important; margin-bottom: 1rem !important; }
+.user-avatar { width: 38px !important; height: 38px !important; border-radius: 50% !important; background: var(--accent-light) !important; color: var(--accent) !important; display: flex !important; align-items: center !important; justify-content: center !important; font-weight: 700 !important; font-size: 15px !important; }
+.user-details { display: flex !important; flex-direction: column !important; }
+.user-name { font-weight: 600 !important; font-size: 14px !important; color: var(--text-primary) !important; }
+.user-role { font-size: 10px !important; font-weight: 600 !important; color: var(--accent) !important; letter-spacing: 0.05em !important; }
+
+/* ---------- SIDEBAR LOGOUT BUTTON ---------- */
+div[data-testid="stSidebar"] button { width: 100% !important; border-radius: 8px !important; background-color: transparent !important; border: 1px solid rgba(239,68,68,0.2) !important; color: var(--danger) !important; transition: all 0.2s ease !important; font-size: 13px !important; font-weight: 600 !important; }
+div[data-testid="stSidebar"] button:hover { background-color: var(--danger-light) !important; border-color: var(--danger) !important; }
+
+/* ---------- METRICS CARDS ---------- */
+.metrics-grid { display: grid !important; gap: 20px !important; margin-bottom: 25px !important; margin-top: 10px !important; }
+.metric-card { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 12px !important; padding: 20px 22px !important; display: flex !important; align-items: center !important; gap: 16px !important; transition: all 0.25s cubic-bezier(0.4,0,0.2,1) !important; box-shadow: var(--card-shadow) !important; }
+.metric-card:hover { transform: translateY(-2px) !important; box-shadow: var(--card-shadow-hover) !important; border-color: var(--accent) !important; }
+.metric-icon { width: 46px !important; height: 46px !important; border-radius: 10px !important; display: flex !important; align-items: center !important; justify-content: center !important; font-size: 20px !important; flex-shrink: 0 !important; }
+.metric-info { display: flex !important; flex-direction: column !important; }
+.metric-value { font-size: 26px !important; font-weight: 700 !important; color: var(--text-primary) !important; line-height: 1.1 !important; }
+.metric-label { font-size: 12px !important; color: var(--text-muted) !important; font-weight: 500 !important; margin-top: 2px !important; }
+
+/* ---------- FORMS ---------- */
+form { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 12px !important; padding: 24px !important; box-shadow: var(--card-shadow) !important; }
+
+/* ---------- INPUTS / TEXTAREA / SELECT ---------- */
+input, textarea, select {
+    background-color: var(--input-bg) !important;
+    border: 1px solid var(--input-border) !important;
+    color: var(--text-secondary) !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    transition: all 0.15s ease !important;
+    font-size: 14px !important;
+}
+input:focus, textarea:focus, select:focus {
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px var(--accent-light) !important;
+}
+
+/* ---------- SIHLECT / DROPDOWN ---------- */
+div[data-baseweb="select"] > div { background-color: var(--input-bg) !important; border: 1px solid var(--input-border) !important; border-radius: 8px !important; }
+div[data-baseweb="select"] span { color: var(--text-secondary) !important; }
+div[data-baseweb="select"] svg { fill: var(--text-muted) !important; }
+div[role="listbox"] { background-color: var(--listbox-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 8px !important; }
+div[role="option"] { color: var(--text-secondary) !important; }
+div[role="option"]:hover { background-color: var(--option-hover) !important; }
+[data-baseweb="select"] * { color: var(--text-secondary) !important; }
+[data-baseweb="select"] > div { background: var(--input-bg) !important; border: 1px solid var(--input-border) !important; }
+
+/* ---------- TAG (Multiselect chips) ---------- */
+span[data-baseweb="tag"] { background-color: var(--accent-light) !important; color: var(--accent) !important; border: 1px solid rgba(59,130,246,0.2) !important; border-radius: 6px !important; }
+span[data-baseweb="tag"] svg { fill: var(--accent) !important; }
+span[data-baseweb="tag"]:hover { background-color: var(--sidebar-tab-hover) !important; }
+
+/* ---------- TABS ---------- */
+button[data-baseweb="tab"] { color: var(--text-secondary) !important; font-weight: 500 !important; padding: 8px 16px !important; transition: all 0.2s ease !important; font-size: 14px !important; background: transparent !important; }
+button[data-baseweb="tab"][aria-selected="true"] { color: var(--accent) !important; border-bottom-color: var(--accent) !important; font-weight: 600 !important; }
+button[data-baseweb="tab"]:hover { color: var(--text-primary) !important; }
+
+/* ---------- BUTTONS ---------- */
+div.stButton > button, div.stFormSubmitButton > button, .stDownloadButton button {
+    background: var(--accent) !important;
+    color: #ffffff !important;
+    border: none !important;
+    border-radius: 8px !important;
+    padding: 8px 16px !important;
+    font-weight: 500 !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: var(--card-shadow) !important;
+    width: 100% !important;
+}
+div.stButton > button:hover, div.stFormSubmitButton > button:hover, .stDownloadButton button:hover {
+    background: var(--accent-hover) !important;
+    box-shadow: var(--card-shadow-hover) !important;
+    transform: translateY(-1px) !important;
+}
+div.stButton > button:active, div.stFormSubmitButton > button:active { transform: translateY(0px) !important; }
+
+/* ---------- DATAFRAME / TABLE ---------- */
+div[data-testid="stDataFrame"] { border: 1px solid var(--border-color) !important; border-radius: 10px !important; overflow: hidden !important; box-shadow: var(--card-shadow) !important; background: var(--card-bg) !important; }
+[data-testid="stDataFrame"] * { color: var(--text-secondary) !important; }
+[data-testid="stDataFrame"] thead th { color: #64748b !important; font-weight: 600 !important; }
+[data-testid="stDataFrame"] tbody td { color: var(--text-secondary) !important; }
+[data-testid="stDataFrame"] tr:nth-child(even) { background: rgba(0,0,0,0.015) !important; }
+hr { border-color: var(--border-color) !important; }
+table { width: 100% !important; border-collapse: collapse !important; background: var(--card-bg) !important; border-radius: 10px !important; overflow: hidden !important; box-shadow: var(--card-shadow) !important; }
+table thead tr { background: var(--accent-light) !important; }
+table th { color: #64748b !important; padding: 12px !important; text-align: left !important; border-bottom: 1px solid var(--border-color) !important; font-weight: 600 !important; font-size: 13px !important; }
+table td { color: var(--text-secondary) !important; padding: 10px 12px !important; border-bottom: 1px solid var(--border-color) !important; font-size: 13px !important; }
+table tbody tr:hover { background: rgba(59,130,246,0.03) !important; }
+
+/* ---------- NUMBER INPUT ---------- */
+[data-testid="stNumberInput"] input { color: var(--text-secondary) !important; }
+[data-testid="stNumberInput"] button {
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    border-radius: 4px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+}
+[data-testid="stNumberInput"] button:hover { background: var(--option-hover) !important; border-color: var(--accent) !important; }
+[data-testid="stNumberInput"] button svg { fill: var(--text-secondary) !important; }
+
+/* ---------- DATE INPUT ---------- */
+[data-testid="stDateInput"] input { color: var(--text-secondary) !important; }
+[data-testid="stDateInput"] button { color: var(--text-secondary) !important; background: transparent !important; border: none !important; }
+[data-testid="stDateInput"] button svg { fill: var(--text-muted) !important; }
+[data-testid="stDateInput"] div[data-baseweb="calendar"] { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 10px !important; box-shadow: var(--card-shadow-hover) !important; }
+[data-testid="stDateInput"] div[data-baseweb="calendar"] * { color: var(--text-secondary) !important; }
+[data-testid="stDateInput"] div[data-baseweb="calendar"] div[aria-selected="true"] { background: var(--accent-light) !important; color: var(--accent) !important; font-weight: 600 !important; border-radius: 50% !important; }
+[data-testid="stDateInput"] div[data-baseweb="calendar"] div:hover { background: var(--option-hover) !important; border-radius: 50% !important; }
+
+/* ---------- MULTISELECT ---------- */
+[data-testid="stMultiSelect"] * { color: var(--text-secondary) !important; }
+[data-testid="stMultiSelect"] div[data-baseweb="select"] > div { background: var(--input-bg) !important; border: 1px solid var(--input-border) !important; border-radius: 8px !important; }
+[data-testid="stMultiSelect"] div[role="listbox"] { background: var(--listbox-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 8px !important; }
+[data-testid="stMultiSelect"] div[role="option"] { color: var(--text-secondary) !important; }
+[data-testid="stMultiSelect"] div[role="option"]:hover { background: var(--option-hover) !important; }
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] { background: var(--accent-light) !important; color: var(--accent) !important; border: 1px solid rgba(59,130,246,0.2) !important; border-radius: 6px !important; }
+[data-testid="stMultiSelect"] span[data-baseweb="tag"] svg { fill: var(--accent) !important; }
+
+/* ---------- CHECKBOX ---------- */
+[data-testid="stCheckbox"] label { color: var(--text-secondary) !important; }
+[data-testid="stCheckbox"] input[type="checkbox"] { accent-color: var(--accent) !important; }
+[data-testid="stCheckbox"] label:hover { color: var(--text-primary) !important; }
+[data-testid="stCheckbox"] svg { fill: var(--accent) !important; }
+
+/* ---------- RADIO BUTTONS ---------- */
+[data-testid="stRadio"] label { color: var(--text-secondary) !important; }
+[data-testid="stRadio"] input[type="radio"] { accent-color: var(--accent) !important; }
+[data-testid="stRadio"] label:hover { color: var(--text-primary) !important; }
+[data-testid="stRadio"] div[role="radiogroup"] label { padding: 6px 10px !important; border-radius: 8px !important; transition: background 0.15s ease !important; }
+[data-testid="stRadio"] div[role="radiogroup"] label:hover { background: var(--option-hover) !important; }
+
+/* ---------- SEUGER ---------- */
+[data-testid="stSlider"] * { color: var(--text-secondary) !important; }
+[data-testid="stSlider"] div[data-baseweb="slider"] { background: var(--border-color) !important; }
+[data-testid="stSlider"] div[data-baseweb="slider"] > div { background: var(--accent) !important; }
+[data-testid="stSlider"] div[role="slider"] { background: var(--accent) !important; border: 2px solid var(--card-bg) !important; box-shadow: var(--card-shadow) !important; }
+[data-testid="stSlider"] div[role="slider"]:hover { box-shadow: var(--card-shadow-hover) !important; }
+[data-testid="stSlider"] .st-dv { color: var(--text-muted) !important; }
+[data-testid="stSlider"] [data-testid="stTickBar"] { color: var(--text-muted) !important; }
+
+/* ---------- METRIC ---------- */
+[data-testid="stMetric"] { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 10px !important; padding: 16px 20px !important; box-shadow: var(--card-shadow) !important; }
+[data-testid="stMetric"] label { color: var(--text-muted) !important; font-size: 12px !important; font-weight: 500 !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; }
+[data-testid="stMetric"] [data-testid="stMetricValue"] { color: var(--text-primary) !important; font-size: 24px !important; font-weight: 700 !important; }
+[data-testid="stMetric"] [data-testid="stMetricDelta"] { color: var(--text-secondary) !important; }
+[data-testid="stMetric"] [data-testid="stMetricDelta"] svg { fill: var(--text-muted) !important; }
+
+/* ---------- EXPANDER ---------- */
+[data-testid="stExpander"] { border: 1px solid var(--border-color) !important; border-radius: 10px !important; background: var(--card-bg) !important; box-shadow: var(--card-shadow) !important; overflow: hidden !important; }
+[data-testid="stExpander"] summary { font-weight: 600 !important; color: var(--text-primary) !important; padding: 12px 16px !important; }
+[data-testid="stExpander"] summary:hover { background: var(--option-hover) !important; }
+[data-testid="stExpander"] summary svg { fill: var(--text-muted) !important; }
+[data-testid="stExpander"] [role="button"] { color: var(--text-primary) !important; }
+[data-testid="stExpander"] .stAlert { border-radius: 0 !important; }
+
+/* ---------- ALERTS (Info, Success, Warning, Error) ---------- */
+.stAlert { border-radius: 8px !important; font-size: 13px !important; }
+[data-testid="stAlert"] * { color: var(--text-secondary) !important; }
+[data-testid="stAlert"] svg { flex-shrink: 0 !important; }
+[data-testid="stInfo"] * { color: var(--text-secondary) !important; }
+[data-testid="stSuccess"] * { color: var(--text-secondary) !important; }
+[data-testid="stWarning"] * { color: var(--text-secondary) !important; }
+[data-testid="stError"] * { color: var(--text-secondary) !important; }
+
+/* ---------- PROGRESS ---------- */
+[data-testid="stProgress"] * { color: var(--text-secondary) !important; }
+[data-testid="stProgress"] div[role="progressbar"] { background: var(--border-color) !important; border-radius: 999px !important; }
+[data-testid="stProgress"] div[role="progressbar"] > div { background: var(--accent) !important; border-radius: 999px !important; }
+
+/* ---------- SPINNER ---------- */
+[data-testid="stSpinner"] * { color: var(--text-secondary) !important; }
+[data-testid="stSpinner"] svg { fill: var(--accent) !important; }
+
+/* ---------- CODE BLOCK ---------- */
+[data-testid="stCode"] { background: var(--bg-secondary) !important; border: 1px solid var(--border-color) !important; border-radius: 8px !important; }
+[data-testid="stCode"] * { color: var(--text-secondary) !important; }
+[data-testid="stCode"] code { color: var(--text-secondary) !important; background: transparent !important; }
+
+/* ---------- CAPTION ---------- */
+[data-testid="stCaption"] * { color: var(--text-muted) !important; font-size: 12px !important; }
+
+/* ---------- TOGGLE ---------- */
+[data-testid="stToggle"] label { color: var(--text-secondary) !important; }
+[data-testid="stToggle"] div[role="switch"] { background: var(--border-color) !important; }
+[data-testid="stToggle"] div[role="switch"][aria-checked="true"] { background: var(--accent) !important; }
+[data-testid="stToggle"] div[role="switch"] div { background: white !important; }
+
+/* ---------- STATUS ---------- */
+[data-testid="stStatus"] * { color: var(--text-secondary) !important; }
+[data-testid="stStatus"] svg { fill: var(--accent) !important; }
+
+/* ---------- FILE UPLOADER ---------- */
+[data-testid="stFileUploader"] * { color: var(--text-secondary) !important; }
+[data-testid="stFileUploader"] button { background: var(--accent) !important; color: white !important; }
+
+/* ---------- COLUMNS ---------- */
+[data-testid="column"] { gap: 16px !important; }
+.st-cb { color: transparent !important; }
+
+/* ---------- DIVIDER ---------- */
+.stDivider { border-color: var(--border-color) !important; }
+
+/* ---------- DOWNLOAD BUTTON ---------- */
+.stDownloadButton button { width: 100% !important; }
+
+/* ---------- INFO CARD (Custom) ---------- */
+.info-card { background: var(--card-bg) !important; border: 1px solid var(--border-color) !important; border-radius: 10px !important; padding: 16px 20px !important; box-shadow: var(--card-shadow) !important; margin-bottom: 16px !important; }
+.info-card-title { font-size: 13px !important; font-weight: 600 !important; color: var(--text-muted) !important; text-transform: uppercase !important; letter-spacing: 0.05em !important; margin-bottom: 6px !important; }
+.info-card-value { font-size: 24px !important; font-weight: 700 !important; color: var(--text-primary) !important; }
+
+/* ---------- ACTIVITY FEED ---------- */
+.activity-item { display: flex !important; align-items: flex-start !important; gap: 12px !important; padding: 12px 0 !important; border-bottom: 1px solid var(--border-color) !important; }
+.activity-item:last-child { border-bottom: none !important; }
+.activity-dot { width: 8px !important; height: 8px !important; border-radius: 50% !important; margin-top: 6px !important; flex-shrink: 0 !important; }
+.activity-content { flex: 1 !important; }
+.activity-text { font-size: 13px !important; color: var(--text-primary) !important; line-height: 1.4 !important; }
+.activity-time { font-size: 11px !important; color: var(--text-muted) !important; margin-top: 2px !important; }
+
+/* ---------- MISC ---------- */
+.search-box { position: relative !important; margin-bottom: 16px !important; }
+.health-safe { color: var(--success) !important; }
+.health-warning { color: var(--warning) !important; }
+.health-danger { color: var(--danger) !important; }
+"""
+
+
 st.markdown(f"""
 <div class="top-nav-bar">
-    <span class="app-logo">🏭</span>
     <div>
         <h1 class="app-title">Aaryan Techno Projects ERP</h1>
         <p class="app-subtitle">Internal Operations & Inventory Control Center</p>
@@ -149,641 +388,12 @@ st.markdown(f"""
 
 <style>
 {css_variables}
-
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
-/* Force Outfit Font & Text Adaptability Everywhere */
-html, body, [class*="css"], .stApp,
-p, span, label, input, select,
-textarea, button,
-h1, h2, h3, h4, h5, h6,
-li, ul {{
-
-    font-family: 'Outfit', sans-serif !important;
-}}
-
-/* Dynamic Heading and Text Colors */
-h1, h2, h3, h4, h5, h6,
-label,
-.stMarkdown,
-p,
-li,
-ul,
-span:not(.app-logo):not(.app-title):not(.app-subtitle) {{
-
-    color: var(--text-primary) !important;
-}}
-
-/* Hide Streamlit default header bar content injection */
-.block-container::before {{
-    display: none !important;
-}}
-
-/* Main App Gradient Background */
-.stApp {{
-
-    background: var(--bg-gradient) !important;
-
-    background-attachment: fixed !important;
-}}
-
-/* Sidebar Gradient Background */
-section[data-testid="stSidebar"] {{
-
-    background: var(--sidebar-gradient) !important;
-
-    border-right:
-        1px solid var(--border-color) !important;
-}}
-
-/* FIX SIDEBAR TEXT */
-section[data-testid="stSidebar"] * {{
-
-    color: var(--text-primary) !important;
-}}
-
-/* Custom Top Navigation / Header Bar */
-.top-nav-bar {{
-
-    display: flex !important;
-
-    align-items: center !important;
-
-    gap: 18px !important;
-
-    padding: 18px 24px !important;
-
-    background: var(--card-bg) !important;
-
-    border:
-        1px solid var(--border-color) !important;
-
-    border-radius: 16px !important;
-
-    margin-bottom: 24px !important;
-
-    backdrop-filter: blur(12px) !important;
-
-    box-shadow:
-        0 4px 30px var(--dataframe-shadow) !important;
-}}
-
-.app-logo {{
-    font-size: 36px !important;
-}}
-
-.app-title {{
-
-    font-size: 26px !important;
-
-    font-weight: 700 !important;
-
-    background:
-        linear-gradient(
-            135deg,
-            #38bdf8,
-            #818cf8
-        ) !important;
-
-    -webkit-background-clip: text !important;
-
-    -webkit-text-fill-color: transparent !important;
-
-    margin: 0 !important;
-
-    letter-spacing: -0.02em !important;
-}}
-
-.app-subtitle {{
-
-    font-size: 11px !important;
-
-    color: var(--text-muted) !important;
-
-    margin: 2px 0 0 0 !important;
-
-    font-weight: 600 !important;
-
-    text-transform: uppercase !important;
-
-    letter-spacing: 0.1em !important;
-}}
-
-/* Sidebar Section Headers */
-.sidebar-section-header {{
-
-    font-size: 11px !important;
-
-    text-transform: uppercase !important;
-
-    letter-spacing: 0.1em !important;
-
-    color: var(--text-muted) !important;
-
-    font-weight: 700 !important;
-
-    margin-top: 1.5rem !important;
-
-    margin-bottom: 0.5rem !important;
-
-    padding-left: 8px !important;
-
-    border-bottom:
-        1px solid var(--border-color) !important;
-
-    padding-bottom: 4px !important;
-}}
-
-/* ================= INPUTS ================= */
-
-input,
-textarea,
-select {{
-
-    background:
-        var(--input-bg) !important;
-
-    border:
-        1px solid var(--input-border) !important;
-
-    color:
-        var(--text-primary) !important;
-
-    border-radius: 10px !important;
-}}
-
-/* ================= SELECTBOX ================= */
-
-div[data-baseweb="select"] > div {{
-
-    background:
-        var(--input-bg) !important;
-
-    border:
-        1px solid var(--input-border) !important;
-
-    border-radius: 10px !important;
-}}
-
-div[data-baseweb="select"] span {{
-
-    color:
-        var(--text-primary) !important;
-}}
-
-div[data-baseweb="select"] input {{
-
-    color:
-        var(--text-primary) !important;
-}}
-
-/* ================= DROPDOWNS ================= */
-
-div[role="listbox"] {{
-
-    background:
-        var(--listbox-bg) !important;
-}}
-
-div[role="option"] {{
-
-    color:
-        var(--text-primary) !important;
-}}
-
-div[role="option"]:hover {{
-
-    background:
-        var(--option-hover) !important;
-}}
-
-/* ================= FILE UPLOADER ================= */
-
-[data-testid="stFileUploader"] * {{
-
-    color:
-        var(--text-primary) !important;
-}}
-
-/* ================= DATAFRAME ================= */
-
-div[data-testid="stDataFrame"] {{
-
-    border:
-        1px solid var(--border-color) !important;
-
-    border-radius: 12px !important;
-
-    overflow: hidden !important;
-
-    box-shadow:
-        0 4px 20px var(--dataframe-shadow) !important;
-}}
-
-[data-testid="stDataFrame"] * {{
-
-    color:
-        var(--text-primary) !important;
-}}
-
-/* ================= BUTTONS ================= */
-
-div.stButton > button,
-div.stFormSubmitButton > button {{
-
-    background:
-        var(--button-gradient) !important;
-
-    color: white !important;
-
-    border: none !important;
-
-    border-radius: 10px !important;
-
-    font-weight: 600 !important;
-
-    transition: 0.2s ease !important;
-}}
-
-div.stButton > button:hover,
-div.stFormSubmitButton > button:hover {{
-
-    background:
-        var(--button-hover) !important;
-
-    transform: translateY(-1px) !important;
-}}
-
-/* ================= DIVIDERS ================= */
-
-hr {{
-
-    border-color:
-        var(--border-color) !important;
-}}
-
-/* ===================== SIDEBAR NAVIGATION CARDS ===================== */
-
-/* Hide radio circles */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label > div:first-child {{
-    display: none !important;
-}}
-
-/* Sidebar radio button list layout */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] {{
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 8px !important;
-    padding: 0 !important;
-}}
-
-/* Style labels to look like premium buttons */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {{
-    display: flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    width: 100% !important;
-    height: auto !important;
-    min-height: 46px !important;
-    padding: 10px 16px !important;
-    margin: 0 !important;
-    border-radius: 12px !important;
-    background: var(--sidebar-tab-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    color: var(--text-secondary) !important;
-    font-weight: 500 !important;
-    font-size: 14px !important;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    cursor: pointer !important;
-}}
-
-/* Hover state */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:hover {{
-    background: var(--sidebar-tab-hover) !important;
-    border-color: var(--text-muted) !important;
-    color: var(--text-primary) !important;
-    transform: translateX(4px) !important;
-}}
-
-/* Checked state */
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label:has(input:checked) {{
-    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(129, 140, 248, 0.15) 100%) !important;
-    border: 1px solid rgba(56, 189, 248, 0.4) !important;
-    color: var(--text-primary) !important;
-    box-shadow: 0 4px 20px -5px rgba(56, 189, 248, 0.25) !important;
-    font-weight: 600 !important;
-}}
-
-section[data-testid="stSidebar"] .stRadio div[role="radiogroup"] label p {{
-    margin: 0 !important;
-    padding: 0 !important;
-    color: inherit !important;
-}}
-
-/* ===================== USER CARD & SIDEBAR LOGOUT ===================== */
-.user-card {{
-    display: flex !important;
-    align-items: center !important;
-    gap: 12px !important;
-    padding: 12px !important;
-    border-radius: 12px !important;
-    background: var(--user-card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    margin-top: 0.5rem !important;
-    margin-bottom: 1rem !important;
-}}
-.user-avatar {{
-    width: 36px !important;
-    height: 36px !important;
-    border-radius: 50% !important;
-    background: linear-gradient(135deg, #38bdf8, #818cf8) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-weight: 700 !important;
-    color: white !important;
-    font-size: 14px !important;
-}}
-.user-details {{
-    display: flex !important;
-    flex-direction: column !important;
-}}
-.user-name {{
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    color: var(--text-primary) !important;
-}}
-.user-role {{
-    font-size: 10px !important;
-    font-weight: 600 !important;
-    color: #38bdf8 !important;
-    letter-spacing: 0.05em !important;
-}}
-
-/* Logout Button */
-div[data-testid="stSidebar"] button {{
-    width: 100% !important;
-    border-radius: 10px !important;
-    background-color: transparent !important;
-    border: 1px solid rgba(239, 68, 68, 0.2) !important;
-    color: #ef4444 !important;
-    transition: all 0.2s ease !important;
-    font-size: 13px !important;
-    font-weight: 600 !important;
-}}
-div[data-testid="stSidebar"] button:hover {{
-    background-color: rgba(239, 68, 68, 0.1) !important;
-    border-color: #ef4444 !important;
-    color: #ef4444 !important;
-}}
-
-/* ===================== DASHBOARD CUSTOM METRIC CARDS ===================== */
-.metrics-grid {{
-    display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 20px !important;
-    margin-bottom: 25px !important;
-    margin-top: 10px !important;
-}}
-.metric-card {{
-    background: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 16px !important;
-    padding: 22px 24px !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 18px !important;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
-    backdrop-filter: blur(12px) !important;
-}}
-.metric-card:hover {{
-    transform: translateY(-4px) !important;
-    border-color: rgba(56, 189, 248, 0.25) !important;
-    box-shadow: 0 10px 30px -10px rgba(56, 189, 248, 0.25) !important;
-}}
-.metric-icon {{
-    width: 48px !important;
-    height: 48px !important;
-    border-radius: 12px !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    font-size: 22px !important;
-}}
-.metric-info {{
-    display: flex !important;
-    flex-direction: column !important;
-}}
-.metric-value {{
-    font-size: 28px !important;
-    font-weight: 700 !important;
-    color: var(--text-primary) !important;
-    line-height: 1.1 !important;
-}}
-.metric-label {{
-    font-size: 13px !important;
-    color: var(--text-secondary) !important;
-    font-weight: 500 !important;
-    margin-top: 2px !important;
-}}
-
-/* ===================== FORM CARDS & INPUT CONTROLS ===================== */
-form {{
-    background: var(--card-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 16px !important;
-    padding: 24px !important;
-    box-shadow: 0 4px 30px var(--dataframe-shadow) !important;
-    backdrop-filter: blur(8px) !important;
-}}
-
-input, textarea, select {{
-    background-color: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    color: var(--text-primary) !important;
-    border-radius: 10px !important;
-    padding: 10px 14px !important;
-    transition: all 0.2s ease !important;
-    font-size: 14px !important;
-}}
-input:focus, textarea:focus, select:focus {{
-    border-color: #38bdf8 !important;
-    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2) !important;
-    background-color: var(--input-focus-bg) !important;
-}}
-
-/* Selectbox Overrides */
-div[data-baseweb="select"] > div {{
-    background-color: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-    border-radius: 10px !important;
-}}
-div[data-baseweb="select"] span {{
-    color: var(--text-primary) !important;
-}}
-div[data-baseweb="select"] svg {{
-    fill: var(--text-primary) !important;
-}}
-div[role="listbox"] {{
-    background-color: var(--listbox-bg) !important;
-    border: 1px solid var(--border-color) !important;
-    border-radius: 10px !important;
-}}
-div[role="option"] {{
-    color: var(--text-secondary) !important;
-}}
-div[role="option"]:hover {{
-    background-color: var(--option-hover) !important;
-}}
-
-/* Multiselect Tag Overrides */
-span[data-baseweb="tag"] {{
-    background-color: var(--input-bg) !important;
-    color: var(--text-primary) !important;
-    border: 1px solid var(--input-border) !important;
-    border-radius: 6px !important;
-}}
-span[data-baseweb="tag"] svg {{
-    fill: var(--text-secondary) !important;
-}}
-span[data-baseweb="tag"]:hover {{
-    background-color: var(--sidebar-tab-hover) !important;
-}}
-
-/* Styled Streamlit Tabs */
-button[data-baseweb="tab"] {{
-    color: var(--text-secondary) !important;
-    font-weight: 500 !important;
-    padding: 10px 20px !important;
-    transition: all 0.2s ease !important;
-    font-size: 14px !important;
-}}
-button[data-baseweb="tab"][aria-selected="true"] {{
-    color: #38bdf8 !important;
-    border-bottom-color: #38bdf8 !important;
-    font-weight: 600 !important;
-}}
-button[data-baseweb="tab"]:hover {{
-    color: var(--text-primary) !important;
-}}
-
-/* Button & Form Submit Styling */
-div.stButton > button, div.stFormSubmitButton > button {{
-    background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%) !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 10px !important;
-    padding: 10px 24px !important;
-    font-weight: 600 !important;
-    font-size: 14px !important;
-    transition: all 0.2s ease-in-out !important;
-    box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2) !important;
-    width: 100% !important;
-}}
-div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
-    transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.35) !important;
-    color: #ffffff !important;
-}}
-div.stButton > button:active, div.stFormSubmitButton > button:active {{
-    transform: translateY(1px) !important;
-}}
-
-/* Dataframe & Table Aesthetics */
-div[data-testid="stDataFrame"] {{
-    border: 1px solid var(--border-color) !important;
-    border-radius: 12px !important;
-    overflow: hidden !important;
-    box-shadow: 0 4px 20px var(--dataframe-shadow) !important;
-}}
-
-/* Helper Divider Override */
-hr {{
-    border-color: var(--border-color) !important;
-}}
-
-/* ================= CUSTOM HTML TABLE ================= */
-
-table {{
-
-    width: 100% !important;
-
-    border-collapse: collapse !important;
-
-    background: var(--card-bg) !important;
-
-    border-radius: 14px !important;
-
-    overflow: hidden !important;
-
-    backdrop-filter: blur(12px) !important;
-}}
-
-/* Header */
-table thead tr {{
-
-    background:
-        rgba(59,130,246,0.08) !important;
-}}
-
-/* Header cells */
-table th {{
-
-    color:
-        var(--text-primary) !important;
-
-    padding: 14px !important;
-
-    text-align: left !important;
-
-    border-bottom:
-        1px solid var(--border-color) !important;
-}}
-
-/* Table rows */
-table td {{
-
-    color:
-        var(--text-primary) !important;
-
-    padding: 12px !important;
-
-    border-bottom:
-        1px solid var(--border-color) !important;
-}}
-
-/* Hover */
-table tbody tr:hover {{
-
-    background:
-        rgba(255,255,255,0.03) !important;
-}}
-/* FORCE SELECTBOX COLORS */
-
-[data-baseweb="select"] * {{
-    color: var(--text-primary) !important;
-}}
-
-[data-baseweb="select"] > div {{
-    background: var(--input-bg) !important;
-    border: 1px solid var(--input-border) !important;
-}}
-
-div[role="listbox"] {{
-    background: var(--listbox-bg) !important;
-}}
-
-div[role="option"] {{
-    color: var(--text-primary) !important;
-    background: transparent !important;
-}}
-
-div[role="option"]:hover {{
-    background: var(--option-hover) !important;
-}}
+{css_styles}
 </style>
 """, unsafe_allow_html=True)
+
+# Inject custom components JS + CSS
+inject_components()
 
 st.divider()
 
@@ -795,7 +405,7 @@ if "logged_in" not in st.session_state:
 
 # ---------------- LOGIN / REGISTER ----------------
 if not st.session_state.logged_in:
-    st.title("🔐 Login")
+    st.title("Login")
 
     tab1, tab2 = st.tabs(["Login", "Register"])
 
@@ -829,19 +439,19 @@ if not st.session_state.logged_in:
 
     st.stop()
 
-role = st.session_state.user["role"]
+role = st.session_state.user["role"] if st.session_state.user else "user"
 
 # ---------------- SIDEBAR ERP NAV ----------------
 st.sidebar.markdown('<p class="sidebar-section-header">Navigation</p>', unsafe_allow_html=True)
 
 page_icons_map = {
-    "📊 Dashboard": "Dashboard",
-    "📦 Products": "Products",
-    "📥 Stock Entry": "Stock Entry",
-    "📤 Issue Stock": "Issue Stock",
-    "📋 Inventory": "Inventory",
-    "📜 Logs": "Logs",
-    "📈 Reports": "Reports"
+    "Dashboard": "Dashboard",
+    "Products": "Products",
+    "Stock Entry": "Stock Entry",
+    "Issue Stock": "Issue Stock",
+    "Inventory": "Inventory",
+    "Logs": "Logs",
+    "Reports": "Reports"
 }
 
 selected_page_with_icon = st.sidebar.radio(
@@ -850,12 +460,22 @@ selected_page_with_icon = st.sidebar.radio(
     label_visibility="collapsed"
 )
 
+# Handle quick-action navigation from dashboard
+if "dash_nav_to" in st.session_state and st.session_state.dash_nav_to:
+    nav_target = st.session_state.dash_nav_to
+    st.session_state.dash_nav_to = None
+    # Find matching page icon
+    for icon_key, page_val in page_icons_map.items():
+        if page_val == nav_target:
+            selected_page_with_icon = icon_key
+            break
+
 page = page_icons_map[selected_page_with_icon]
 
 st.sidebar.markdown('<p class="sidebar-section-header">Session</p>', unsafe_allow_html=True)
 
-username = st.session_state.user["username"]
-role_display = st.session_state.user["role"].upper()
+username = st.session_state.user["username"] if st.session_state.user else "guest"
+role_display = st.session_state.user["role"].upper() if st.session_state.user else "USER"
 initial = username[0].upper() if username else "U"
 
 st.sidebar.markdown(f"""
@@ -875,33 +495,46 @@ if st.sidebar.button("Logout"):
 
 # ---------------- DASHBOARD ----------------
 if page == "Dashboard":
-    st.subheader("Executive Summary")
+    st.markdown(f"""<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <h2 style="margin:0;font-weight:700;">Executive Summary</h2>
+    </div>""", unsafe_allow_html=True)
 
     products = get_all_products()
     issues = get_issue_logs()
 
     total_products = len(products)
-    low_stock = len([p for p in products if p.get("quantity", 0) <= p.get("min_stock", float('inf'))])
     total_issues = len(issues)
+    low_stock = len([p for p in products if p.get("quantity", 0) <= 5])
+    healthy_stock = total_products - low_stock
+
+    # Recent activity
+    recent_issues = sorted(issues, key=lambda x: x.get("date", ""), reverse=True)[:5] if issues else []
 
     st.markdown(f"""
     <div class="metrics-grid">
         <div class="metric-card">
-            <div class="metric-icon" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8;">📦</div>
+            <div class="metric-icon" style="background: var(--accent-light); color: var(--accent);"> </div>
             <div class="metric-info">
                 <div class="metric-value">{total_products}</div>
                 <div class="metric-label">Total Products</div>
             </div>
         </div>
         <div class="metric-card">
-            <div class="metric-icon" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">⚠️</div>
+            <div class="metric-icon" style="background: var(--success-light); color: var(--success);"> </div>
+            <div class="metric-info">
+                <div class="metric-value">{healthy_stock}</div>
+                <div class="metric-label">Healthy Stock</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background: var(--danger-light); color: var(--danger);"> </div>
             <div class="metric-info">
                 <div class="metric-value">{low_stock}</div>
                 <div class="metric-label">Low Stock Items</div>
             </div>
         </div>
         <div class="metric-card">
-            <div class="metric-icon" style="background: rgba(168, 85, 247, 0.1); color: #a855f7;">📋</div>
+            <div class="metric-icon" style="background: var(--warning-light); color: var(--warning);"> </div>
             <div class="metric-info">
                 <div class="metric-value">{total_issues}</div>
                 <div class="metric-label">Total Issues</div>
@@ -910,27 +543,101 @@ if page == "Dashboard":
     </div>
     """, unsafe_allow_html=True)
 
+    # ---- Quick Actions ----
+    st.markdown("### Quick Actions")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("Add Product", use_container_width=True, key="dash_add_product"):
+            st.session_state.dash_nav_to = "Products"
+            st.rerun()
+    with col2:
+        if st.button("Add Stock", use_container_width=True, key="dash_add_stock"):
+            st.session_state.dash_nav_to = "Stock Entry"
+            st.rerun()
+    with col3:
+        if st.button("Issue Stock", use_container_width=True, key="dash_issue_stock"):
+            st.session_state.dash_nav_to = "Issue Stock"
+            st.rerun()
+    with col4:
+        if st.button("View Reports", use_container_width=True, key="dash_reports"):
+            st.session_state.dash_nav_to = "Reports"
+            st.rerun()
+
+    # ---- Recent Activity ----
+    st.markdown("### Recent Activity")
+    if recent_issues:
+        activity_html = ""
+        for iss in recent_issues:
+            activity_html += f"""
+            <div class="activity-item">
+                <div class="activity-dot" style="background: var(--accent);"></div>
+                <div class="activity-content">
+                    <div class="activity-text"><strong>{iss.get('product_name', 'Unknown')}</strong> issued {iss.get('issued_qty', 0)} to <strong>{iss.get('issued_to', 'N/A')}</strong></div>
+                    <div class="activity-time">{iss.get('date', '')} &middot; by {iss.get('issued_by', '')}</div>
+                </div>
+            </div>
+            """
+        st.markdown(f"""
+        <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:16px 20px;box-shadow:var(--card-shadow);">
+            {activity_html}
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.info("No recent activity yet.")
+
 
 # ---------------- PRODUCTS MODULE ----------------
 elif page == "Products":
-    st.subheader("📦 Product Management")
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Product Management</h2>", unsafe_allow_html=True)
 
-    # ---------- PRODUCT TABLE ----------
     products = get_all_products()
 
-    st.markdown("### 📋 Product List")
-
+    # ---------- SEARCH & FILTER ----------
     if products:
         df = pd.DataFrame(products)
-        df["Stock"] = df["quantity"].astype(str) + " " + df["unit_type"]
-        st.dataframe(df, use_container_width=True)
+        search_term = st.text_input("Search products by name, code, or supplier...", key="product_search").strip().lower()
+        
+        # Filter
+        if search_term:
+            mask = (
+                df["name"].str.lower().str.contains(search_term, na=False) |
+                df["category"].str.lower().str.contains(search_term, na=False) |
+                df["supplier"].str.lower().str.contains(search_term, na=False) |
+                df["item_code"].astype(str).str.lower().str.contains(search_term, na=False)
+            )
+            df_filtered = df[mask]
+        else:
+            df_filtered = df
+
+        st.markdown(f"<p style='color:var(--text-muted);font-size:13px;margin-bottom:12px;'>Showing {len(df_filtered)} of {len(products)} products</p>", unsafe_allow_html=True)
+
+        if not df_filtered.empty:
+            df_display = df_filtered.copy()
+            df_display["Stock"] = df_display["quantity"].astype(str) + " " + df_display["unit_type"]
+            df_display["Health"] = df_display["quantity"].apply(lambda q: " Good" if q > 15 else (" Medium" if q > 5 else " Low"))
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                render_table(df_display[["name","category","supplier","Stock","Health"]], key="products_table")
+            with col2:
+                st.markdown('<div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px;padding:16px;box-shadow:var(--card-shadow);">', unsafe_allow_html=True)
+                st.markdown("##### Stock Health")
+                low_count = len(df_filtered[df_filtered["quantity"] <= 5])
+                med_count = len(df_filtered[(df_filtered["quantity"] > 5) & (df_filtered["quantity"] <= 15)])
+                safe_count = len(df_filtered[df_filtered["quantity"] > 15])
+                st.markdown(f"<p style='color:var(--danger);font-size:14px;'>Low: <strong>{low_count}</strong></p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='color:var(--warning);font-size:14px;'>Medium: <strong>{med_count}</strong></p>", unsafe_allow_html=True)
+                st.markdown(f"<p style='color:var(--success);font-size:14px;'>Good: <strong>{safe_count}</strong></p>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            render_alert("No products match your search.", "info")
     else:
-        st.info("No products available")
+        render_alert("No products available. Add your first product below!", "info")
 
     st.divider()
 
     # ---------- EXCEL IMPORT ----------
-    st.markdown("### 📥 Import Products from Excel")
+    st.markdown("### Import Products from Excel")
 
     with st.form("excel_import_form", clear_on_submit=False):
         uploaded_file = st.file_uploader(
@@ -1009,9 +716,12 @@ elif page == "Products":
                                     name,
                                     category,
                                     supplier,
-                                    0,
+                                    0,  # date_added placeholder
                                     cost_price,
-                                    0
+                                    None,  # plant_name placeholder
+                                    None,  # gate_pass_no placeholder
+                                    None,  # gate_pass_date placeholder
+                                    0  # sell_price placeholder
                                 )
                                 updated += 1
 
@@ -1039,11 +749,11 @@ elif page == "Products":
                             st.error(f"Row failed: {e}")
 
 
-                    st.success(f"✅ Imported {imported} new products")
-                    st.info(f"🔁 Updated {updated} existing products")
-                    st.warning(f"⚠️ Skipped {skipped} rows")
+                    st.success(f"Imported {imported} new products")
+                    st.info(f"Updated {updated} existing products")
+                    st.warning(f"Skipped {skipped} rows")
                     if errors:
-                        st.error(f"❌ {errors} rows failed")
+                        st.error(f"{errors} rows failed")
 
                 except Exception as e:
                     st.error(f"Excel import failed: {e}")
@@ -1051,7 +761,7 @@ elif page == "Products":
     st.divider()
 
     # ---------- MANUAL ADD FORM ----------
-    st.markdown("### ➕ Add New Product")
+    st.markdown("### Add New Product")
 
     with st.form("add_product_form"):
         col1, col2 = st.columns(2)
@@ -1074,7 +784,7 @@ elif page == "Products":
             gate_pass_no = st.text_input("Gate Pass No.")
             gate_pass_date = st.date_input("Gate Pass Date")
 
-        # ✅ SUBMIT BUTTON MUST BE INSIDE FORM
+        #  SUBMIT BUTTON MUST BE INSIDE FORM
         submitted = st.form_submit_button("Add Product")
 
         if submitted:
@@ -1095,79 +805,126 @@ elif page == "Products":
                     str(gate_pass_date)
                 )
 
-                st.success("✅ Product Added Successfully!")
-                st.info("Saved ✔")
+                st.success("Product Added Successfully!")
+                st.info("Saved")
                 st.rerun()
 
             else:
-                st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+                st.warning("Already submitted. Please wait 2 seconds.")
+
+    # ---------- DELETE PRODUCT (ADMIN ONLY) ----------
+    if role == "admin":
+        st.divider()
+        st.markdown("### Delete Product (Admin Only)")
+        with st.form("delete_product_form"):
+            product_options = {
+                f"{p['name']} (Code: {p['item_code'] or 'N/A'})": p['product_id']
+                for p in products
+            }
+            if product_options:
+                selected_prod_to_delete = st.selectbox(
+                    "Select Product to Delete",
+                    options=list(product_options.keys())
+                )
+                
+                confirm_delete = st.checkbox(
+                    "I confirm that I want to permanently delete this product and all associated issue/movement logs.",
+                    key="confirm_delete_checkbox"
+                )
+                
+                submitted_delete = st.form_submit_button("Delete Product")
+                
+                if submitted_delete:
+                    if not confirm_delete:
+                        st.error("Please confirm deletion by checking the confirmation box.")
+                    else:
+                        prod_id = product_options[selected_prod_to_delete]
+                        delete_product(prod_id)
+                        st.success(" Product and its associated logs deleted successfully!")
+                        st.rerun()
+            else:
+                render_alert("No products available to delete.", "info")
 
 
 # ---------------- STOCK ENTRY ----------------
+
 elif page == "Stock Entry":
-    st.subheader("Stock Entry")
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Stock Entry</h2>", unsafe_allow_html=True)
 
     products = get_all_products()
 
     if products:
-        # ---------------- PROJECT FILTER ----------------
-        project_list = sorted(list(set([p["category"] for p in products if p["category"]])))
+        df_products = pd.DataFrame(products)
 
-        selected_project = st.selectbox(
-            "Select Project",
-            ["All Projects"] + project_list,
-            key="stock_entry_project_filter"
-        )
+        col_filter, col_info = st.columns([1, 1])
 
-        # Filter products by selected project
-        if selected_project != "All Projects":
-            products = [p for p in products if p["category"] == selected_project]
-
-        if products:
-            product_map = {p["name"]: p["product_id"] for p in products}
-
-            selected = st.selectbox(
-                "Select Product",
-                list(product_map.keys()),
-                key="add_stock_product"
+        with col_filter:
+            project_list = sorted(list(set([p["category"] for p in products if p["category"]])))
+            selected_project = st.selectbox(
+                "Select Project",
+                ["All Projects"] + project_list,
+                key="stock_entry_project_filter"
             )
 
-            unit_type = st.selectbox(
-                "Unit Type",
-                ["Meter", "Quantity"],
-                key="add_stock_unit"
-            )
+            if selected_project != "All Projects":
+                products_filtered = [p for p in products if p["category"] == selected_project]
+            else:
+                products_filtered = products
 
-            qty = st.number_input(
-                f"Enter {unit_type} Value",
-                min_value=1,
-                step=1,
-                key="add_stock_qty"
-            )
+        if products_filtered:
+            product_map = {p["name"]: p for p in products_filtered}
 
-            notes = st.text_input("Notes (optional)", key="add_stock_notes")
+            with col_filter:
+                selected_name = st.selectbox(
+                    "Select Product",
+                    list(product_map.keys()),
+                    key="add_stock_product"
+                )
+                selected_product = product_map[selected_name]
 
-            # Auto store unit info inside notes
-            final_notes = f"[{unit_type}] {notes}".strip()
+            # Show current stock info card
+            with col_info:
+                current_qty = selected_product["quantity"]
+                unit = selected_product.get("unit_type", "Units")
+                health_class = "stock-badge-danger" if current_qty <= 5 else ("stock-badge-warning" if current_qty <= 15 else "stock-badge-safe")
+                health_text = "Low" if current_qty <= 5 else ("Medium" if current_qty <= 15 else "Good")
+                st.markdown(f"""
+                <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px;padding:16px;box-shadow:var(--card-shadow);height:100%;">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">Current Stock</div>
+                    <div style="font-size:28px;font-weight:700;color:var(--text-primary);">{current_qty} <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{unit}</span></div>
+                    <div style="margin-top:8px;"><span class="stock-badge {health_class}">&#8226; {health_text}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
 
-            if st.button("Add Stock", key="add_stock_btn"):
-                if safe_action_lock("add_stock_lock", cooldown=2):
-                    update_stock(product_map[selected], qty, "ADD", final_notes)
-                    st.success("✅ Stock Added Successfully!")
-                    st.info("Saved ✔")
-                    st.rerun()
-                else:
-                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
+            # Stock addition form
+            with st.form("add_stock_form"):
+                st.markdown("##### + Add Stock")
+                col1, col2 = st.columns(2)
+                with col1:
+                    unit_type = st.selectbox("Unit Type", ["Meter", "Quantity"], key="add_stock_unit")
+                    qty = st.number_input(f"Quantity to Add ({unit_type})", min_value=1, step=1, key="add_stock_qty")
+                with col2:
+                    notes = st.text_input("Notes / Reference", key="add_stock_notes", placeholder="e.g. Supplier delivery #123")
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    submitted = st.form_submit_button("+ Add Stock", use_container_width=True)
+
+                if submitted:
+                    if safe_action_lock("add_stock_lock", cooldown=2):
+                        final_notes = f"[{unit_type}] {notes}".strip()
+                        update_stock(selected_product["product_id"], qty, "ADD", final_notes)
+                        st.success(f"Successfully added {qty} {unit_type} to {selected_name}!")
+                        st.rerun()
+                    else:
+                        st.warning("Already submitted. Please wait 2 seconds.")
         else:
             st.warning("No products found in this project.")
-
     else:
-        st.info("No products available.")
+        render_alert("No products available. Add products first!", "info")
 
 
 # ---------------- ISSUE STOCK ----------------
 elif page == "Issue Stock":
-    st.subheader("Issue Inventory")
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Issue Inventory</h2>", unsafe_allow_html=True)
 
     products = get_all_products()
 
@@ -1176,110 +933,109 @@ elif page == "Issue Stock":
     else:
         df_all = pd.DataFrame(products)
 
-        # PROJECT FILTER
-        project_list = ["All Projects"] + sorted(
-            df_all["category"].dropna().unique().tolist()
-        )
+        project_list = ["All Projects"] + sorted(df_all["category"].dropna().unique().tolist())
+        col_filter, col_info = st.columns([1, 1])
 
-        selected_project = st.selectbox("Select Project", project_list)
+        with col_filter:
+            selected_project = st.selectbox("Select Project", project_list)
 
-        # APPLY FILTER
         if selected_project != "All Projects":
             filtered_products = [p for p in products if p["category"] == selected_project]
         else:
             filtered_products = products
 
-        # IF NO PRODUCTS AFTER FILTER
         if not filtered_products:
             st.warning("No products found in this project.")
         else:
-            product_map = {p["name"]: p["product_id"] for p in filtered_products}
+            product_map = {p["name"]: p for p in filtered_products}
 
-            selected = st.selectbox(
-                "Select Product",
-                list(product_map.keys()),
-                key="issue_product"
-            )
+            with col_filter:
+                selected_name = st.selectbox("Select Product", list(product_map.keys()), key="issue_product")
 
-            issued_to = st.text_input("Issued To", key="issue_to")
-            issued_qty = st.number_input("Issued Quantity", min_value=1, step=1, key="issue_qty")
+            selected_product = product_map[selected_name]
+            current_qty = selected_product["quantity"]
+            unit_type = selected_product.get("unit_type", "Units")
 
-            st.markdown("### Consumption (Optional)")
-            used_qty = st.number_input("Used Quantity", min_value=0, step=1, key="used_qty")
-            usage_purpose = st.text_input("What was it used for?", key="usage_purpose")
+            # Product info card
+            with col_info:
+                health_class = "stock-badge-danger" if current_qty <= 5 else ("stock-badge-warning" if current_qty <= 15 else "stock-badge-safe")
+                health_text = "Low" if current_qty <= 5 else ("Medium" if current_qty <= 15 else "Good")
+                st.markdown(f"""
+                <div style="background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px;padding:16px;box-shadow:var(--card-shadow);height:100%;">
+                    <div style="font-size:13px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;">{selected_name}</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">{selected_product.get('category', '')} &middot; {selected_product.get('supplier', '')}</div>
+                    <div style="font-size:28px;font-weight:700;color:var(--text-primary);">{current_qty} <span style="font-size:14px;font-weight:400;color:var(--text-muted);">{unit_type}</span></div>
+                    <div style="margin-top:8px;"><span class="stock-badge {health_class}">&#8226; Available: {health_text}</span></div>
+                </div>
+                """, unsafe_allow_html=True)
 
-            remaining_qty = issued_qty - used_qty
-            st.info(f"Remaining with user: {remaining_qty}")
+            with st.form("issue_stock_form"):
+                st.markdown("##### Issue Details")
+                col1, col2 = st.columns(2)
+                with col1:
+                    issued_to = st.text_input("Issue To", key="issue_to", placeholder="Person name")
+                    issued_qty = st.number_input(f"Quantity to Issue ({unit_type})", min_value=1, max_value=current_qty, step=1, key="issue_qty")
+                with col2:
+                    used_qty = st.number_input("Used Quantity", min_value=0, max_value=current_qty, step=1, key="used_qty")
+                    usage_purpose = st.text_input("Usage Purpose", key="usage_purpose", placeholder="What is it for?")
 
-            if st.button("📤 Submit Issue"):
-                if safe_action_lock("issue_lock", cooldown=2):
+                remaining_qty = issued_qty - used_qty
+                if issued_qty > 0:
+                    st.info(f"Remaining with user: **{remaining_qty}** {unit_type}")
 
-                    if used_qty > issued_qty:
-                        st.error("Used quantity cannot exceed issued quantity")
+                if current_qty <= 5:
+                    st.warning(f"Only {current_qty} {unit_type} in stock! Consider restocking.")
 
-                    else:
-                        issue_product(
-                            product_map[selected],
-                            issued_to,
-                            st.session_state.user["username"],
-                            issued_qty,
-                            used_qty,
-                            usage_purpose
-                        )
-
-                        st.success("✅ Issue Recorded Successfully!")
-                        st.info("Saved ✔")
-                        st.rerun()
-
-                else:
-                    st.warning("⚠️ Already submitted. Please wait 2 seconds.")
-
-        st.divider()
-        st.subheader("✏️ Edit Issued Records")
-
-        issues = get_issue_logs()   
-
-        if issues:
-            df = pd.DataFrame(issues)
-
-            products = get_all_products()
-
-            # Map product_id → Item Name
-            product_lookup = {p["product_id"]: p["name"] for p in products}
-
-            # The following block should only run if issues exist
-            issue_map = {}
-
-            for index, i in enumerate(issues):
-                product_name = product_lookup.get(i["product_id"], "Deleted Product")
-                issued_to = i.get("issued_to", "")
-
-                label = f"Issue #{index+1} — {product_name} → {issued_to}"
-                issue_map[label] = i
-
-            selected = st.selectbox("Select Issue to Edit", list(issue_map.keys()))
-
-            issue = issue_map[selected]
-
-            with st.form("edit_issue_form"):
-                issued_to = st.text_input("Issued To", value=issue.get("issued_to", ""))
-                issued_qty = st.number_input("Issued Quantity", value=int(issue.get("issued_qty", 0)), step=1)
-                used_qty = st.number_input("Used Quantity", value=int(issue.get("used_qty", 0)), step=1)
-                usage_purpose = st.text_input("Usage Purpose", value=issue.get("usage_purpose", ""))
-
-                submitted = st.form_submit_button("Update Issue")
+                submitted = st.form_submit_button("Submit Issue", use_container_width=True)
 
                 if submitted:
-                    issue_id = issue.get("issue_id") or issue.get("id")
-                    success = update_issue(
-                        issue_id,
-                        issued_to,
-                        issued_qty,
-                        used_qty,
-                        usage_purpose
-                    )
+                    if safe_action_lock("issue_lock", cooldown=2):
+                        if not issued_to.strip():
+                            st.error("Please enter who the item is issued to.")
+                        elif used_qty > issued_qty:
+                            st.error("Used quantity cannot exceed issued quantity.")
+                        elif issued_qty > current_qty:
+                            st.error(f"Not enough stock! Only {current_qty} {unit_type} available.")
+                        else:
+                            issue_product(
+                                selected_product["product_id"],
+                                issued_to,
+                                st.session_state.user["username"],
+                                issued_qty,
+                                used_qty,
+                                usage_purpose
+                            )
+                            st.success(f"Issued {issued_qty} {unit_type} of {selected_name} to {issued_to}!")
+                            st.rerun()
+                    else:
+                        st.warning("Already submitted. Please wait 2 seconds.")
 
-                    if success:
+        st.divider()
+        st.markdown("<h3>Edit Issued Records</h3>", unsafe_allow_html=True)
+
+        issues = get_issue_logs()
+        if issues:
+            product_lookup = {p["product_id"]: p["name"] for p in products}
+            issue_map = {}
+            for idx, i_val in enumerate(issues):
+                pname = product_lookup.get(i_val["product_id"], "Deleted Product")
+                issue_map[f"#{idx+1} {pname} → {i_val.get('issued_to','')}"] = i_val
+
+            selected_issue_label = st.selectbox("Select Issue to Edit", list(issue_map.keys()))
+            issue = issue_map[selected_issue_label]
+
+            with st.form("edit_issue_form"):
+                col1, col2 = st.columns(2)
+                with col1:
+                    e_issued_to = st.text_input("Issued To", value=issue.get("issued_to", ""))
+                    e_qty = st.number_input("Issued Quantity", value=int(issue.get("issued_qty", 0)), step=1)
+                with col2:
+                    e_used = st.number_input("Used Qty", value=int(issue.get("used_qty", 0)), step=1)
+                    e_purpose = st.text_input("Purpose", value=issue.get("usage_purpose", ""))
+
+                if st.form_submit_button("Update Issue"):
+                    issue_id = issue.get("issue_id") or issue.get("id")
+                    if update_issue(issue_id, e_issued_to, e_qty, e_used, e_purpose):
                         st.success("Issue updated and stock adjusted!")
                         st.rerun()
                     else:
@@ -1287,119 +1043,193 @@ elif page == "Issue Stock":
         else:
             st.info("No issue records available.")
 
-# ---------------- LOGS ----------------
+# ---------------- INVENTORY (Stock Health) ----------------
+elif page == "Inventory":
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Inventory & Stock Health</h2>", unsafe_allow_html=True)
+
+    products = get_all_products()
+    if not products:            render_alert("No products in inventory.", "info")
+    else:
+        df = pd.DataFrame(products)
+
+        # Filters
+        col1, col2 = st.columns(2)
+        with col1:
+            project_filter = render_select("Filter by Project", ["All"] + sorted(df["category"].dropna().unique().tolist()), key="inv_project")
+        with col2:
+            health_filter = render_select("Filter by Health", ["All", "Good", "Medium", "Low"], key="inv_health")
+
+        filtered_df = df.copy()
+        if project_filter != "All":
+            filtered_df = filtered_df[filtered_df["category"] == project_filter]
+        if health_filter != "All":
+            if health_filter == "Low":
+                filtered_df = filtered_df[filtered_df["quantity"] <= 5]
+            elif health_filter == "Medium":
+                filtered_df = filtered_df[(filtered_df["quantity"] > 5) & (filtered_df["quantity"] <= 15)]
+            elif health_filter == "Good":
+                filtered_df = filtered_df[filtered_df["quantity"] > 15]
+
+        # Summary cards
+        total_val = len(filtered_df)
+        low_val = len(filtered_df[filtered_df["quantity"] <= 5])
+        med_val = len(filtered_df[(filtered_df["quantity"] > 5) & (filtered_df["quantity"] <= 15)])
+        safe_val = len(filtered_df[filtered_df["quantity"] > 15])
+
+        st.markdown(f"""
+        <div class="metrics-grid" style="grid-template-columns:repeat(4,1fr)!important">
+            <div class="metric-card"><div class="metric-icon" style="background:var(--accent-light);color:var(--accent);">&#128230;</div><div class="metric-info"><div class="metric-value">{total_val}</div><div class="metric-label">Total Items</div></div></div>
+            <div class="metric-card"><div class="metric-icon" style="background:var(--success-light);color:var(--success);">&#9989;</div><div class="metric-info"><div class="metric-value">{safe_val}</div><div class="metric-label">Good Stock</div></div></div>
+            <div class="metric-card"><div class="metric-icon" style="background:var(--warning-light);color:var(--warning);">&#128202;</div><div class="metric-info"><div class="metric-value">{med_val}</div><div class="metric-label">Medium Stock</div></div></div>
+            <div class="metric-card"><div class="metric-icon" style="background:var(--danger-light);color:var(--danger);">&#9888;&#65039;</div><div class="metric-info"><div class="metric-value">{low_val}</div><div class="metric-label">Low Stock</div></div></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Table
+        if not filtered_df.empty:
+            display = filtered_df[["name","category","supplier","quantity","unit_type","item_code"]].copy()
+            display.columns = ["Product","Project","Supplier","Qty","Unit","Code"]
+            display["Health"] = display["Qty"].apply(
+                lambda q: "✅ Good" if q > 15 
+                else ("⚠️ Medium" if q > 5 
+                else "🔴 Low")
+            )
+            render_table(display, key="inventory_table")
+        else:
+            st.info("No products match the selected filters.")# ---------------- LOGS ----------------
+
 elif page == "Logs":
-    st.subheader("Stock Movement History")
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Activity Logs</h2>", unsafe_allow_html=True)
 
-    history = get_stock_history()
-    if history:
-        st.dataframe(pd.DataFrame(history), use_container_width=True)
-    else:
-        st.info("No stock movements yet.")
+    active_tab = render_tabs(["Stock Movements", "Issue Logs"], key="logs_tabs")
 
-    st.subheader("Issue Logs")
+    if active_tab == 0:
+        history = get_stock_history()
+        if history:
+            df = pd.DataFrame(history)
+            cols = ["date","name","movement_type","change_qty","notes"]
+            cols = [c for c in cols if c in df.columns]
+            render_table(df[cols], key="stock_movements")
+        else:
+            render_alert("No stock movements yet.", "info")
 
-    issues = get_issue_logs()
-    if issues:
-        st.dataframe(pd.DataFrame(issues), use_container_width=True)
-    else:
-        st.info("No issued products yet.")
+    elif active_tab == 1:
+        issues = get_issue_logs()
+        if issues:
+            df = pd.DataFrame(issues)
+            cols = ["date","product_name","issued_to","issued_by","issued_qty","used_qty","remaining_qty","usage_purpose"]
+            cols = [c for c in cols if c in df.columns]
+            render_table(df[cols], key="issue_logs")
+        else:
+            render_alert("No issued products yet.", "info")
 
 # ---------------- REPORTS ----------------
 elif page == "Reports":
-    st.subheader("📊 Master Reports (Inventory + Logs)")
+    st.markdown("<h2 style='margin-bottom:4px;font-weight:700;'>Master Reports</h2>", unsafe_allow_html=True)
 
     data = get_interconnected_data()
 
     if not data:
-        st.info("No records available.")
+        render_alert("No records available.", "info")
     else:
         df = pd.DataFrame(data)
 
         # ---------------- FILTER SECTION ----------------
-        st.markdown("### 🔎 Filters")
-
-        col1, col2, col3, col4 = st.columns(4)
-
-        with col1:
-            person_filter = st.selectbox(
-                "Person",
-                ["All"] + sorted(df["issued_to"].dropna().unique().tolist())
-            )
-
-        with col2:
-            product_filter = st.selectbox(
-                "Product",
-                ["All"] + sorted(df["product"].dropna().unique().tolist())
-            )
-
-        with col3:
-            category_filter = st.selectbox(
-                "Project",
-                ["All"] + sorted(df["category"].dropna().unique().tolist())
-            )
-
-        with col4:
-            issuer_filter = st.selectbox(
-                "Issuer",
-                ["All"] + sorted(df["issued_by"].dropna().unique().tolist())
-            )
-        show_issued_only = st.toggle("Show Issued Items Only", value=False)
-
+        with render_expander("Filters", key="report_filters", expanded=True):
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                person_filter = render_select("Person", ["All"] + sorted(df["issued_to"].dropna().unique().tolist()), key="report_person")
+            with col2:
+                product_filter = render_select("Product", ["All"] + sorted(df["product"].dropna().unique().tolist()), key="report_product")
+            with col3:
+                category_filter = render_select("Project", ["All"] + sorted(df["category"].dropna().unique().tolist()), key="report_category")
+            with col4:
+                issuer_filter = render_select("Issuer", ["All"] + sorted(df["issued_by"].dropna().unique().tolist()), key="report_issuer")
+        
+        # Show issued only toggle
+        show_issued_only = st.toggle("Show Issued Items Only", value=False, key="report_show_issued")
+        
         # ---------------- APPLY FILTERS ----------------
         filtered = df.copy()
         if show_issued_only:
             filtered = filtered[filtered["issued_to"].notna()]
-
         if person_filter != "All":
             filtered = filtered[filtered["issued_to"] == person_filter]
-
         if product_filter != "All":
             filtered = filtered[filtered["product"] == product_filter]
-
         if category_filter != "All":
             filtered = filtered[filtered["category"] == category_filter]
-
         if issuer_filter != "All":
             filtered = filtered[filtered["issued_by"] == issuer_filter]
 
-        # ---------------- COLUMN VISIBILITY ----------------
-        st.markdown("### 🧩 Column Visibility")
+        # ---------------- SUMMARY METRICS ----------------
+        unique_products = filtered.drop_duplicates(subset=["product_id"])
+        total_stock_had_sum = unique_products["total_stock_had"].sum() if not unique_products.empty else 0
+        total_issued_sum = unique_products["total_issued"].sum() if not unique_products.empty else 0
+        total_stock_left_sum = unique_products["stock_left"].sum() if not unique_products.empty else 0
 
-        all_columns = list(filtered.columns)
+        st.markdown("### Stock Summary")
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1:
+            render_metric("Total Stock I Had", f"{total_stock_had_sum:,}", key="total_had")
+        with col_m2:
+            render_metric("Stock Issued", f"{total_issued_sum:,}", key="total_issued")
+        with col_m3:
+            render_metric("Stock Left", f"{total_stock_left_sum:,}", key="total_left")
+
+        # Rename columns
+        filtered_disp = filtered.rename(columns={
+            "product_id": "Product ID",
+            "product": "Product Name",
+            "category": "Project",
+            "supplier": "Supplier",
+            "item_code": "Item Code",
+            "contract_number": "Contract Number",
+            "plant_name": "Plant Name",
+            "gate_pass_no": "Gate Pass No",
+            "gate_pass_date": "Gate Pass Date",
+            "unit_type": "Unit",
+            "current_stock": "Current Stock",
+            "date_added": "Date Added",
+            "issued_to": "Issued To",
+            "issued_by": "Issued By",
+            "issued_qty": "Issued Qty",
+            "used_qty": "Used Qty",
+            "usage_purpose": "Usage Purpose",
+            "issue_date": "Issue Date",
+            "total_stock_had": "Total Stock I Had",
+            "total_issued": "Stock Issued",
+            "stock_left": "Stock Left"
+        })
+
+        # ---------------- COLUMN VISIBILITY ----------------
+        all_columns = list(filtered_disp.columns)
+        default_cols = ["Product Name", "Project", "Supplier", "Total Stock I Had", "Stock Issued", "Stock Left", "Issued To", "Issued Qty", "Issue Date"]
+        default_selection = [c for c in default_cols if c in all_columns]
 
         if "visible_master_report_columns" not in st.session_state:
-            st.session_state.visible_master_report_columns = all_columns
+            st.session_state.visible_master_report_columns = default_selection
+        else:
+            st.session_state.visible_master_report_columns = [c for c in st.session_state.visible_master_report_columns if c in all_columns]
+            if not st.session_state.visible_master_report_columns:
+                st.session_state.visible_master_report_columns = default_selection
 
-        selected_columns = st.multiselect(
-            "Select columns to display",
-            all_columns,
-            default=st.session_state.visible_master_report_columns,
-            key="master_report_column_selector"
-        )
-
-        st.session_state.visible_master_report_columns = selected_columns
+        selected_columns = render_multiselect("Select columns to display", all_columns, key="report_column_selector", default=st.session_state.visible_master_report_columns)
+        st.session_state.visible_master_report_columns = selected_columns if selected_columns else default_selection
 
         # ---------------- MASTER TABLE ----------------
-        st.markdown("### 📋 Complete Report")
-
-        valid_columns = [col for col in selected_columns if col in filtered.columns]
-        st.dataframe(
-            filtered[valid_columns],
-            use_container_width=True,
-            height=600
-        )
+        valid_columns = [c for c in selected_columns if c in filtered_disp.columns] if selected_columns else [c for c in default_selection if c in filtered_disp.columns]
+        render_table(filtered_disp[valid_columns], key="master_report_table", height=500)
 
         # ---------------- EXPORT ----------------
         buffer = io.BytesIO()
-
         with pd.ExcelWriter(buffer, engine="xlsxwriter") as writer:
-            filtered[valid_columns].to_excel(writer, sheet_name="Master Report", index=False)
-
+            filtered_disp[valid_columns].to_excel(writer, sheet_name="Master Report", index=False)
         buffer.seek(0)
-        st.download_button(
-            label="⬇ Download Excel",
-            data=buffer.getvalue(),
-            file_name="master_inventory_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        render_download_button(
+            "Download Excel Report",
+            filtered_disp[valid_columns],
+            "master_inventory_report.xlsx",
+            key="report_download"
         )
+
